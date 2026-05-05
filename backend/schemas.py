@@ -1,29 +1,33 @@
-# backend/schemas.py
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-# 1. โครงสร้างข้อมูลเวลาหน้าเว็บส่งมา "สร้างพนักงานใหม่" (รับข้อมูลเข้ามา)
 class UserCreate(BaseModel):
-    fullname: str
     employee_id: str
-    # face_encoding ตอนแรกอาจจะยังไม่มี (รอกดสแกนทีหลัง) เลยให้เว้นว่างได้
-    face_encoding: Optional[str] = None 
+    fullname: str
+    image_base64: str
+    is_admin: bool = False
 
-# 2. โครงสร้างข้อมูลเวลา Backend ส่ง "ข้อมูลพนักงาน" กลับไปให้หน้าเว็บ (ส่งข้อมูลออกไป)
+# backend/schemas.py
+class ScanRequest(BaseModel):
+    image_base64: str
+    employee_id: Optional[str] = None # 🚀 ใส่ Optional ไว้เผื่อไม่ได้ส่งมา
+
+# backend/schemas.py
+
 class UserResponse(BaseModel):
-    id: int
-    fullname: str
     employee_id: str
-    created_at: datetime
+    fullname: str
+    is_admin: bool
+    status: str      
+    timestamp: datetime 
+
+class LogResponse(BaseModel):
+    id: int
+    employee_id: str
+    fullname: str
+    status: str
+    timestamp: datetime
 
     class Config:
-        from_attributes = True # ตั้งค่าให้อ่านข้อมูลจาก Database (SQLAlchemy) ได้
-
-
-# backend/schemas.py (เพิ่มโค้ดนี้ต่อท้าย)
-
-class UserUpdate(BaseModel):
-    fullname: Optional[str] = None
-    employee_id: Optional[str] = None
-    face_encoding: Optional[str] = None
+        from_attributes = True
