@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export default function Home() {
   const menus = [
     { href: "/scan", title: "สแกนเวลาทำงาน", icon: ScanFace, color: "text-blue-500", hover: "hover:bg-blue-500/10" },
-    { href: "/register", title: "ลงทะเบียนพนักงาน", icon: UserPlus, color: "text-emerald-500", hover: "hover:bg-emerald-500/10" },
+    { href: "/login", title: "เข้าสู่ระบบ (Admin)", icon: UserPlus, color: "text-emerald-500", hover: "hover:bg-emerald-500/10" },
     { href: "/dashboard", title: "ประวัติการทำงาน", icon: LayoutDashboard, color: "text-purple-500", hover: "hover:bg-purple-500/10" },
   ];
 

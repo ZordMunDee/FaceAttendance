@@ -4,12 +4,10 @@ import { useState, useRef } from 'react';
 import { CameraBox } from "./CameraBox";
 import { Button } from "./ui/button";
 import { userService } from "@/services/user-service";
-import { Settings2, ScanFace, Loader2, Check, X } from "lucide-react";
-import Link from "next/link";
+import { ScanFace, Loader2, Check, X } from "lucide-react";
 import { useRouter } from 'next/navigation';
 
 export function ScanInterface() {
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
   
   // 🚀 State สำหรับคุม Popup เต็มหน้าจอ
@@ -39,20 +37,22 @@ export function ScanInterface() {
       return;
     }
 
-    // 🚀 เพิ่มคำสั่งเปิดไฟ (Trigger Light) ทันทีที่เริ่มสแกน
-    try {
-        fetch("http://localhost:8000/trigger-light/", { method: "POST" });
-    } catch (e) {
-        console.warn("ไม่สามารถสั่งเปิดไฟได้:", e);
-    }
-
     setLoading(true);
 
     try {
+      // 1. สแกนใบหน้าก่อน
       const res = await userService.scan(img);
+      
+      // 2. 🚀 สั่งเปิดไฟหลังจากสแกนผ่านสำเร็จเท่านั้น (เพิ่มตรงนี้)
+      try {
+        await fetch("http://localhost:8000/trigger-light/", { method: "POST" });
+      } catch (e) {
+        console.warn("ไม่สามารถสั่งเปิดไฟได้:", e);
+      }
+
       const isCheckIn = res.status === 'In';
       
-      // 🚀 1. แสดง Popup สีเขียว (สำเร็จ)
+      // 3. แสดง Popup สำเร็จ
       setPopup({
         show: true,
         type: 'success',
@@ -60,22 +60,17 @@ export function ScanInterface() {
         subtitle: isCheckIn ? 'เข้างาน สำเร็จ' : 'ออกงาน สำเร็จ'
       });
 
-      if (res.is_admin) {
-        setIsAdmin(true);
-        setTimeout(() => {
-          setPopup(prev => ({ ...prev, show: false }));
-          setLoading(false);
-        }, 2000);
-      } else {
-        setTimeout(() => {
-          router.push('/'); 
-        }, 2500);
-      }
+      // หน่วงเวลาให้ผู้ใช้เห็น Popup แล้วเด้งกลับหน้าหลัก
+      setTimeout(() => {
+        setPopup(prev => ({ ...prev, show: false }));
+        setLoading(false);
+        router.push('/'); 
+      }, 2500);
 
     } catch (err: any) {
       console.error("Scan Error:", err);
       
-      // 🚀 3. แสดง Popup สีแดง (ไม่สำเร็จ)
+      // 🚀 แสดง Popup ผิดพลาด (ไม่ผ่าน ไม่ต้องเปิดไฟ)
       setPopup({
         show: true,
         type: 'error',
@@ -118,23 +113,9 @@ export function ScanInterface() {
             </span>
           )}
         </Button>
-
-        {isAdmin && !popup.show && (
-          <div className="pt-4 relative z-50">
-            <Button 
-              variant="outline" 
-              asChild 
-              className="w-full h-14 border-emerald-500/50 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/10 rounded-2xl animate-in zoom-in"
-            >
-              <Link href="/admin/users">
-                <Settings2 className="mr-2 h-5 w-5" /> เข้าสู่ระบบจัดการ (Admin)
-              </Link>
-            </Button>
-          </div>
-        )}
       </div>
 
-      {/* 🚀🚀 ส่วนของ Popup เต็มหน้าจอ 🚀🚀 */}
+      {/* 🚀🚀 Popup เต็มหน้าจอ 🚀🚀 */}
       {popup.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 px-6">
           <div className={`w-full max-w-lg rounded-[2rem] p-10 sm:p-14 flex flex-col items-center justify-center text-center shadow-2xl animate-in zoom-in-95 duration-300 ${
@@ -155,7 +136,6 @@ export function ScanInterface() {
             <p className="text-2xl sm:text-3xl font-medium text-white/90">
               {popup.subtitle}
             </p>
-
           </div>
         </div>
       )}

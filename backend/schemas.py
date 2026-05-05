@@ -29,5 +29,15 @@ class LogResponse(BaseModel):
     status: str
     timestamp: datetime
 
+# 🚀 สำหรับอัปเดตข้อมูลพนักงาน
+class UserUpdate(BaseModel):
+    fullname: str
+    is_admin: bool
+
+# 🚀 สำหรับรับข้อมูลตอน Login ของ Admin
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
     class Config:
         from_attributes = True
