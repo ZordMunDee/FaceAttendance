@@ -42,3 +42,5 @@ B. กล้อง WebCam:
 - Permission Error: หากใช้ Linux/Mac อย่าลืม sudo chmod 666 /dev/ttyUSB0
 - Face Recognition ไม่ทำงาน: เช็คว่าติดตั้ง OpenCV และไฟล์โมเดลใบหน้าเรียบร้อยแล้ว
 =====================================================
+
+https://gemini.google.com/share/06f75c599229
