@@ -1,0 +1,44 @@
+=====================================================
+    SETUP GUIDE: FACE AUTH SYSTEM (FRONT & BACK)
+=====================================================
+
+--- 1. BACKEND (Python / FastAPI) ---
+A. ติดตั้ง Python 3.10+ (แนะนำ 3.10 หรือ 3.11 เพื่อความเสถียรของ library)
+B. ติดตั้ง Library หลัก (รันใน Terminal ที่โฟลเดอร์ backend):
+   pip install fastapi uvicorn sqlalchemy mysql-connector-python python-dotenv
+   pip install face-recognition numpy opencv-python pyserial
+
+C. หมายเหตุพิเศษสำหรับ Windows:
+   - กรณีลง 'dlib' หรือ 'face-recognition' แล้ว Error:
+     1. ต้องลง Visual Studio Build Tools (เลือกหัวข้อ Desktop development with C++)
+     2. ลง CMake (pip install cmake)
+
+D. การตั้งค่า Environment (.env):
+   - สร้างไฟล์ .env ในโฟลเดอร์ backend แล้วใส่ค่า:
+     ADMIN_USER=admin
+     ADMIN_PASS=1234
+     SERIAL_PORT=COM3 (หรือพอร์ตที่บอร์ด SC-840 เชื่อมต่ออยู่)
+
+--- 2. FRONTEND (Next.js / React) ---
+A. ติดตั้ง Node.js (แนะนำเวอร์ชัน LTS: 18.x หรือ 20.x)
+B. ติดตั้ง Library หลัก (รันใน Terminal ที่โฟลเดอร์ front/app):
+   npm install
+   npm install lucide-react sonner clsx tailwind-merge (หรือตามที่โปรเจกต์ใช้)
+
+C. การรันโปรเจกต์:
+   - รัน Backend: cd backend && uvicorn main:app --reload
+   - รัน Frontend: cd front && npm run dev
+
+--- 3. HARDWARE & DRIVERS ---
+A. Driver สำหรับบอร์ด SC-840:
+   - ตรวจสอบว่าคอมพิวเตอร์เห็นพอร์ต Serial ใน Device Manager (ต้องขึ้นชื่อพอร์ต COMx)
+   - หากขึ้นเครื่องหมายตกใจสีเหลือง ให้โหลด Driver สำหรับบอร์ด Lambda Nu
+
+B. กล้อง WebCam:
+   - ตรวจสอบว่า Browser มีสิทธิ์เข้าถึงกล้อง (Camera Permission) เมื่อกดเข้าหน้าเว็บ
+
+--- 4. ปัญหาที่พบบ่อย (Troubleshooting) ---
+- Port Serial ไม่พบ: เช็คเลข COM Port ใน Device Manager และไฟล์ .env
+- Permission Error: หากใช้ Linux/Mac อย่าลืม sudo chmod 666 /dev/ttyUSB0
+- Face Recognition ไม่ทำงาน: เช็คว่าติดตั้ง OpenCV และไฟล์โมเดลใบหน้าเรียบร้อยแล้ว
+=====================================================
