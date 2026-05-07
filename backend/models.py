@@ -1,26 +1,40 @@
 # backend/models.py
+
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey
-from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
 
-# ตารางพนักงาน (เหมือนเดิม)
+
+# ตารางพนักงาน
 class User(Base):
     __tablename__ = "users"
 
-    employee_id = Column(String, primary_key=True, index=True)
-    fullname = Column(String)
+    employee_id = Column(String(50), primary_key=True, index=True)
+    fullname = Column(String(255))
+
     is_admin = Column(Boolean, default=False)
-    face_encoding = Column(String)
-    status = Column(String, default="In") 
+
+    # face encoding JSON ยาวมาก
+    face_encoding = Column(String(12000))
+
+    status = Column(String(50), default="In")
+
     timestamp = Column(DateTime, default=datetime.now)
 
-# 🚀 สร้างตารางใหม่: เอาไว้จดประวัติทุกครั้งที่สแกน
+
+# ตารางประวัติการสแกน
 class ScanLog(Base):
     __tablename__ = "scan_logs"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    employee_id = Column(String, ForeignKey("users.employee_id"))
-    fullname = Column(String)
-    status = Column(String) # จดว่าตอนนั้นเข้า หรือ ออก
+
+    employee_id = Column(
+        String(50),
+        ForeignKey("users.employee_id")
+    )
+
+    fullname = Column(String(255))
+
+    status = Column(String(50))
+
     timestamp = Column(DateTime, default=datetime.now)

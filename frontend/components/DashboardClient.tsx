@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -17,99 +16,69 @@ import {
   Users,
   Clock,
   RefreshCw,
-  LogIn,
-  LogOut,
   CheckCircle2,
   AlertCircle,
   Moon,
+  CalendarIcon,
+  Settings2,
+  LayoutDashboard,
+  UserCheck,
+  UserPlus,
+  LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+import { api } from "@/lib/api";
+import { Calendar } from "@/components/ui/calendar";
+import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 export function DashboardClient() {
-  const [logs, setLogs] = useState([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    onTime: 0,
-    late: 0,
-    overtime: 0,
-  });
+  const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 🚀 ฟังก์ชันคำนวณสถิติ (ปรับเวลาตามเงื่อนไขใหม่ของไนซ์)
-  const calculateStats = (allUsers: any[], allLogs: any[]) => {
-    const today = new Date().setHours(0, 0, 0, 0);
-    const todayLogs = allLogs.filter(
-      (log) => new Date(log.timestamp).setHours(0, 0, 0, 0) === today,
-    );
-    const userMap = new Map();
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [employeeCount, setEmployeeCount] = useState(0);
 
-    todayLogs.forEach((log) => {
-      if (!userMap.has(log.employee_id)) {
-        userMap.set(log.employee_id, { firstIn: null, lastOut: null });
-      }
-      const userData = userMap.get(log.employee_id);
-      const logTime = new Date(log.timestamp);
-      const timeValue = logTime.getHours() + logTime.getMinutes() / 60;
+  const pathname = usePathname();
 
-      if (log.status === "In") {
-        if (
-          !userData.firstIn ||
-          new Date(log.timestamp) < new Date(userData.firstIn.timestamp)
-        ) {
-          userData.firstIn = { timestamp: log.timestamp, timeValue };
-        }
-      } else if (log.status === "Out") {
-        if (
-          !userData.lastOut ||
-          new Date(log.timestamp) > new Date(userData.lastOut.timestamp)
-        ) {
-          userData.lastOut = { timestamp: log.timestamp, timeValue };
-        }
-      }
-    });
+  const router = useRouter();
 
-    let onTime = 0;
-    let late = 0;
-    let ot = 0;
+  // 🚀 ฟังก์ชัน Logout
+  const handleLogout = () => {
+    // 1. ลบสถานะ Login ออกจากเครื่อง
+    localStorage.removeItem("isAdminLoggedIn");
+    localStorage.removeItem("adminName");
 
-    userMap.forEach((data) => {
-      // ⏱️ เงื่อนไขเข้างานปกติ: ก่อน 08:30 น. (8.5)
-      if (data.firstIn) {
-        if (data.firstIn.timeValue <= 8.5) {
-          onTime++;
-        } else {
-          late++;
-        }
-      }
-
-      // ⏱️ เงื่อนไขนอกเวลา (OT): หลัง 17:30 น. (17.5)
-      if (data.lastOut && data.lastOut.timeValue >= 17.5) {
-        ot++;
-      }
-    });
-
-    setStats({
-      total: allUsers.length,
-      onTime,
-      late,
-      overtime: ot,
-    });
+    // 2. ดีดกลับไปหน้า Login
+    router.push("/login");
   };
 
+  const [adminProfile, setAdminProfile] = useState({
+    name: "Admin",
+    role: "ADMIN",
+  });
+
+  const isActive = (path: string) => pathname === path;
+
+  // ================= FETCH =================
   const fetchData = useCallback(async () => {
     setIsRefreshing(true);
+
     try {
-      const [userRes, logRes] = await Promise.all([
-        axios.get(`${API_URL}/users/`),
-        axios.get(`${API_URL}/scan/logs`),
+      const [userRes, logRes, empRes] = await Promise.all([
+        api.get("/users/"),
+        api.get("/scan/logs"),
+        api.get("/employees/count"), // 👈 เพิ่มตัวนี้
       ]);
+
       setLogs(logRes.data);
-      calculateStats(userRes.data, logRes.data);
-    } catch (error) {
-      console.error("❌ Fetch Error:", error);
+      setEmployeeCount(empRes.data.total); // 👈 สำคัญ
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -122,163 +91,343 @@ export function DashboardClient() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  // ================= FILTER BY DATE =================
+  const filteredByDate = useMemo(() => {
+    if (!date) return logs;
+
+    return logs.filter((log) => {
+      const d = new Date(log.timestamp);
+      return (
+        d.getFullYear() === date.getFullYear() &&
+        d.getMonth() === date.getMonth() &&
+        d.getDate() === date.getDate()
+      );
+    });
+  }, [logs, date]);
+
+  // ================= FILTER BY STATUS =================
+  const filteredLogs = useMemo(() => {
+    if (statusFilter === "all") return filteredByDate;
+    return filteredByDate.filter((l) => l.status === statusFilter);
+  }, [filteredByDate, statusFilter]);
+
+  // ================= SUMMARY =================
+  const summary = useMemo(() => {
+    return {
+      total: employeeCount,
+      onTime: filteredByDate.filter(
+        (l) => l.status === "In" && new Date(l.timestamp).getHours() < 9,
+      ).length,
+      late: filteredByDate.filter((l) => l.status === "Late").length,
+      overtime: filteredByDate.filter(
+        (l) => l.status === "Out" && new Date(l.timestamp).getHours() >= 17,
+      ).length,
+    };
+  }, [filteredByDate]);
+
+  const cards = [
+    {
+      label: "พนักงานทั้งหมด",
+      val: summary.total,
+      color: "text-slate-800",
+      bg: "bg-white",
+      icon: <Users className="w-5 h-5 text-slate-600" />,
+    },
+    {
+      label: "มาทำงานปกติ",
+      val: summary.onTime,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
+    },
+    {
+      label: "เข้างานสาย",
+      val: summary.late,
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+      icon: <AlertCircle className="w-5 h-5 text-rose-600" />,
+    },
+    {
+      label: "ทำงานล่วงเวลา",
+      val: summary.overtime,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      icon: <Clock className="w-5 h-5 text-amber-600" />,
+    },
+  ];
+
+  // ================= LOADING =================
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 space-y-4">
-        <Loader2 className="animate-spin text-emerald-500" size={48} />
-        <p className="text-slate-500 font-bold uppercase tracking-[0.2em]">
-          กำลังคำนวณเวลาเข้า-ออก...
-        </p>
+      <div className="flex flex-col items-center justify-center py-24">
+        <Loader2 className="animate-spin text-emerald-500" size={40} />
+        <p className="text-slate-500 mt-3">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="พนักงานทั้งหมด"
-          value={stats.total}
-          unit="คน"
-          icon={<Users className="text-blue-500" />}
-        />
-        <StatCard
-          title="มาปกติ (ก่อน 08:30)"
-          value={stats.onTime}
-          unit="คน"
-          icon={<CheckCircle2 className="text-emerald-500" />}
-          color="text-emerald-500"
-        />
-        <StatCard
-          title="มาสาย (หลัง 08:30)"
-          value={stats.late}
-          unit="คน"
-          icon={<AlertCircle className="text-rose-500" />}
-          color="text-rose-500"
-        />
-        <StatCard
-          title="นอกเวลา (หลัง 17:30)"
-          value={stats.overtime}
-          unit="คน"
-          icon={<Moon className="text-amber-500" />}
-          color="text-amber-500"
-        />
-      </div>
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
+      {/* ================= SIDEBAR ================= */}
+      <aside className="w-64 bg-[#0A1D37] border-r border-slate-200 p-6 flex flex-col text-white">
+        <h1 className="text-xl font-bold mb-8 flex items-center gap-2">
+          <Settings2 className="text-emerald-500" /> MANAGEMENT
+        </h1>
 
-      <Card className="bg-slate-900 border-slate-800 shadow-2xl rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between p-8 border-b border-slate-800 bg-slate-950/20">
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-white">
-            <Clock size={22} className="text-emerald-500" /> รายการบันทึกวันนี้
-          </CardTitle>
+        <nav className="space-y-4 flex-1">
+          {/* DASHBOARD */}
+          <Link href="/admin/dashboard" className="w-full block">
+            <Button
+              variant="ghost"
+              className={`w-full justify-start ${
+                isActive("/admin/dashboard")
+                  ? "bg-white text-slate-900 shadow-md"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              }`}
+            >
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Dashboard
+            </Button>
+          </Link>
+
+          {/* FACE MANAGEMENT */}
+          <Link href="/admin/management" className="w-full block">
+            <Button
+              variant="ghost"
+              className={`w-full justify-start ${
+                isActive("/admin/management")
+                  ? "bg-white text-slate-900 shadow-md"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              }`}
+            >
+              <UserCheck className="mr-2 h-4 w-4" />
+              Face Management
+            </Button>
+          </Link>
+
+          {/* REGISTER (เหมือน Management page) */}
           <Button
-            variant="outline"
-            size="icon"
-            onClick={fetchData}
-            disabled={isRefreshing}
-            className="rounded-full border-slate-800"
+            variant="ghost"
+            onClick={() => router.push("/register")}
+            className={`w-full justify-start ${
+              isActive("/register")
+                ? "bg-emerald-500 text-white shadow-md"
+                : "text-emerald-400 hover:bg-slate-800"
+            }`}
           >
-            <RefreshCw
-              size={16}
-              className={isRefreshing ? "animate-spin" : ""}
-            />
+            <UserPlus className="mr-2 h-4 w-4" />
+            ลงทะเบียนพนักงานใหม่
           </Button>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-slate-950/50">
-              <TableRow className="border-slate-800">
-                <TableHead className="pl-10 text-slate-400">ID</TableHead>
-                <TableHead className="text-slate-400">ชื่อพนักงาน</TableHead>
-                <TableHead className="text-slate-400">เวลาที่บันทึก</TableHead>
-                <TableHead className="text-right pr-10 text-slate-400">
-                  สถานะ
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.length > 0 ? (
-                logs.slice(0, 15).map((log: any, index: number) => (
-                  <TableRow
-                    key={index}
-                    className="border-slate-800 hover:bg-slate-800/10"
+        </nav>
+
+        {/* LOGOUT */}
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          className="w-full justify-start text-red-400 hover:bg-slate-800"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          ออกจากระบบ
+        </Button>
+      </aside>
+
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="flex-1 p-10 overflow-y-auto">
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-10">
+          <div>
+            <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+              Attendance Dashboard
+            </h2>
+            <p className="text-slate-500 mt-1">
+              สรุปข้อมูลการลงเวลาทำงานพนักงาน
+            </p>
+          </div>
+
+          {/* ADMIN CARD */}
+          <div className="flex items-center gap-4 bg-white p-2 pr-5 rounded-full shadow-sm border border-slate-200">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+              <ShieldCheck size={20} />
+            </div>
+
+            <div>
+              <p className="text-sm font-bold leading-none">
+                {adminProfile.name}
+              </p>
+              <p className="text-[10px] text-emerald-600 font-bold uppercase mt-1">
+                Administrator
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ================= SUMMARY ================= */}
+        <div className="grid grid-cols-4 gap-6 mb-10">
+          {cards.map((card, idx) => (
+            <div
+              key={idx}
+              className={`${card.bg} rounded-3xl border border-slate-200 shadow-sm p-6 transition-transform hover:scale-[1.02]`}
+            >
+              {/* header */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                  {card.label}
+                </p>
+
+                {card.icon}
+              </div>
+
+              {/* value */}
+              <p className={`text-4xl font-black mt-3 ${card.color}`}>
+                {card.val}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* ================= MAIN GRID ================= */}
+        <div className="grid grid-cols-12 gap-8">
+          {/* CALENDAR */}
+          <div className="col-span-4">
+            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 flex flex-col">
+              {/* header */}
+              <div className="flex items-center gap-2 mb-4 text-slate-800">
+                <CalendarIcon size={18} />
+                <h3 className="font-bold">ปฏิทินตรวจสอบ</h3>
+              </div>
+
+              {/* calendar */}
+              <div className="flex-1 flex">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  className="w-full h-full rounded-2xl border border-slate-200 bg-white shadow-sm p-4
+        [&_.rdp]:w-full
+        [&_.rdp-table]:w-full
+        [&_.rdp-cell]:w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* TABLE */}
+          <div className="col-span-8">
+            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+              {/* HEADER */}
+              <div className="flex justify-between items-center p-6 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-6 bg-blue-600 rounded-full" />
+                  <h3 className="font-bold text-lg">รายการลงเวลาล่าสุด</h3>
+                </div>
+
+                <div className="flex gap-3">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="bg-slate-100 px-4 py-2 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <TableCell className="pl-10 font-mono text-emerald-500">
-                      {log.employee_id}
-                    </TableCell>
-                    <TableCell className="font-bold text-slate-200">
-                      {log.fullname}
-                    </TableCell>
-                    <TableCell className="text-slate-400 text-sm">
-                      {new Date(log.timestamp).toLocaleTimeString("th-TH")}
-                    </TableCell>
-                    <TableCell className="text-right pr-10">
-                      <Badge
-                        className={
-                          log.status === "In"
-                            ? "bg-emerald-500/10 text-emerald-500"
-                            : log.status === "Late"
-                              ? "bg-rose-500/10 text-rose-500"
-                              : "bg-amber-500/10 text-amber-500"
-                        }
+                    <option value="all">ทั้งหมด</option>
+                    <option value="In">เข้างาน</option>
+                    <option value="Out">ออกงาน</option>
+                    <option value="Late">สาย</option>
+                  </select>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={fetchData}
+                    className="rounded-xl border-slate-200"
+                  >
+                    <RefreshCw
+                      size={18}
+                      className={isRefreshing ? "animate-spin" : ""}
+                    />
+                  </Button>
+                </div>
+              </div>
+
+              {/* TABLE BODY */}
+              <div className="flex-1 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-none hover:bg-transparent">
+                      <TableHead className="pl-8 uppercase text-[11px] font-black text-slate-400">
+                        Employee
+                      </TableHead>
+
+                      <TableHead className="text-center uppercase text-[11px] font-black text-slate-400">
+                        Time
+                      </TableHead>
+
+                      <TableHead className="text-right pr-8 uppercase text-[11px] font-black text-slate-400">
+                        Status
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {filteredLogs.map((log, i) => (
+                      <TableRow
+                        key={i}
+                        className="border-b border-slate-50 hover:bg-slate-50/50 h-16"
                       >
-                        {log.status === "In"
-                          ? "เข้างาน"
-                          : log.status === "Late"
-                            ? "มาสาย"
-                            : "ออกงาน"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-center py-10 text-slate-500"
-                  >
-                    ยังไม่มีข้อมูลของวันนี้
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        <TableCell className="pl-8">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-800">
+                              {log.fullname}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono uppercase">
+                              {log.employee_id}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-center font-medium text-slate-600">
+                          {new Date(log.timestamp).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </TableCell>
+
+                        <TableCell className="text-right pr-8">
+                          <span
+                            className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase
+                          ${
+                            log.status === "In"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : log.status === "Late"
+                                ? "bg-rose-100 text-rose-700"
+                                : "bg-blue-100 text-blue-700"
+                          }`}
+                          >
+                            {log.status === "In" ? "On Time" : log.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
 
-// 🚀 1. สร้าง Interface เพื่อบอก Type ของข้อมูล
-interface StatCardProps {
-  title: string;
-  value: number | string;
-  unit: string;
-  icon: React.ReactNode;
-  color?: string; // ใส่ ? หมายความว่า "มีหรือไม่มีก็ได้" (เพราะเรามีค่า default ไว้แล้ว)
-}
-
-// 🚀 2. เอา StatCardProps ไปแปะหลังวงเล็บ
-function StatCard({
-  title,
-  value,
-  unit,
-  icon,
-  color = "text-white",
-}: StatCardProps) {
+// ================= STAT CARD =================
+function StatCard({ title, value, icon, color = "text-white" }: any) {
   return (
-    <Card className="bg-slate-900 border-slate-800 rounded-3xl shadow-xl">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-          {title}
-        </CardTitle>
-        {icon}
-      </CardHeader>
-      <CardContent>
-        <div className={`text-3xl font-black ${color}`}>
-          {value}{" "}
-          <span className="text-xs font-medium text-slate-600 ml-1">
-            {unit}
-          </span>
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex justify-between">
+          <div>
+            <p className="text-xs text-slate-500">{title}</p>
+            <h2 className={`text-2xl font-bold ${color}`}>{value}</h2>
+          </div>
+          {icon}
         </div>
       </CardContent>
     </Card>

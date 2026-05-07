@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, extract
 
 import os
 import json
@@ -20,6 +20,9 @@ import models
 import schemas
 from database import engine, get_db
 from auth import create_access_token
+from auth import verify_token
+
+from fastapi import Header
 
 
 # =========================
@@ -37,6 +40,20 @@ app.add_middleware(
 
 load_dotenv()
 models.Base.metadata.create_all(bind=engine)
+
+
+def get_current_user(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(401, "No token")
+
+    token = authorization.replace("Bearer ", "")
+
+    payload = verify_token(token)
+
+    if not payload:
+        raise HTTPException(401, "Invalid token")
+
+    return payload
 
 
 # =========================
@@ -104,7 +121,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(400, "exists")
 
     enc = decode_face(user.image_base64)
-    if not enc:
+
+    if enc is None:
         raise HTTPException(400, "no face")
 
     db.add(models.User(
@@ -121,8 +139,13 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/users/")
-def users(db: Session = Depends(get_db)):
+def users(db: Session = Depends(get_db), user=Depends(get_current_user)):
     return db.query(models.User).all()
+
+@app.get("/employees/count")
+def get_employee_count(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    count = db.query(models.User).count()
+    return {"total": count}
 
 
 # =========================
@@ -132,7 +155,16 @@ def users(db: Session = Depends(get_db)):
 def login(data: schemas.LoginRequest):
 
     if data.username == os.getenv("ADMIN_USER") and data.password == os.getenv("ADMIN_PASS"):
-        return {"message": "ok"}
+
+        token = create_access_token({
+            "sub": data.username,
+            "role": "admin"
+        })
+
+        return {
+            "access_token": token,
+            "token_type": "bearer"
+        }
 
     raise HTTPException(401, "invalid")
 
@@ -240,11 +272,59 @@ def stats(db: Session = Depends(get_db)):
 
     result = db.query(
         models.ScanLog.fullname,
-        func.count(models.ScanLog.id)
+        func.count(models.ScanLog.id).label("count")
     ).filter(
-        models.ScanLog.status == "In"
+        models.ScanLog.status == "Late"
     ).group_by(
         models.ScanLog.fullname
+    ).order_by(
+        func.count(models.ScanLog.id).desc()
     ).all()
 
-    return [{"name": r[0], "count": r[1]} for r in result]
+    return [
+        {"name": r[0], "count": r[1]}
+        for r in result
+    ]
+
+
+@app.get("/stats/latecomers/monthly")
+def late_monthly(db: Session = Depends(get_db)):
+
+    four_months_ago = datetime.now() - timedelta(days=120)
+
+    year_col = extract('year', models.ScanLog.timestamp).label("year")
+    month_col = extract('month', models.ScanLog.timestamp).label("month")
+
+    result = (
+        db.query(
+            models.ScanLog.fullname,
+            year_col,
+            month_col,
+            func.count(models.ScanLog.id).label("count")
+        )
+        .filter(
+            models.ScanLog.status == "Late",
+            models.ScanLog.timestamp >= four_months_ago
+        )
+        .group_by(
+            models.ScanLog.fullname,
+            year_col,
+            month_col
+        )
+        .order_by(
+            year_col.desc(),
+            month_col.desc(),
+            func.count(models.ScanLog.id).desc()
+        )
+        .all()
+    )
+
+    return [
+        {
+            "name": r[0],
+            "year": int(r[1]),
+            "month": int(r[2]),
+            "count": r[3]
+        }
+        for r in result
+    ]

@@ -23,8 +23,11 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        localStorage.setItem("isAdminLoggedIn", "true");
-        toast.success("เข้าสู่ระบบสำเร็จ!");
+        const data = await response.json();
+
+        localStorage.setItem("token", data.access_token);
+
+        toast.success("Login success");
         router.push("/admin/management");
       } else {
         toast.error("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง!");

@@ -23,19 +23,42 @@ import {
 } from "lucide-react"; // 🚀 เพิ่มไอคอนใหม่
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+export const api = axios.create({
+  baseURL: API_URL,
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
 export default function ManagementPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  type User = {
+    employee_id: string;
+    fullname: string;
+  };
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [search, setSearch] = useState("");
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [adminProfile, setAdminProfile] = useState({
     name: "Admin",
     role: "ADMIN",
   });
+
 
   useEffect(() => {
     const name = localStorage.getItem("adminName") || "Owen Radcliffe";
@@ -43,19 +66,51 @@ export default function ManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (localStorage.getItem("isAdminLoggedIn") !== "true") {
-      router.push("/login");
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      router.replace("/login");
       return;
     }
+
     fetchUsers();
-  }, [router]);
+
+    // 👇 สำคัญ: รีเฟรชตอนกลับมาหน้า
+    const handleFocus = () => {
+      fetchUsers();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("http://localhost:8000/users/");
-      const data = await res.json();
-      setUsers(data);
-    } catch (e) {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      const res = await api.get("/users/");
+
+      if (res.data) {
+        setUsers(res.data);
+      }
+    } catch (e: any) {
+      console.error(e);
+
+      if (e.response?.status === 401) {
+        toast.error("Session หมดอายุ");
+        localStorage.removeItem("token");
+        router.replace("/login");
+        return;
+      }
+
       toast.error("โหลดข้อมูลล้มเหลว");
     } finally {
       setLoading(false);
@@ -67,15 +122,11 @@ export default function ManagementPage() {
     if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบพนักงานคนนี้?")) return;
 
     try {
-      const res = await fetch(`http://localhost:8000/users/${employee_id}`, {
-        method: "DELETE",
-      });
+      const res = await api.delete(`/users/${employee_id}`);
 
-      if (res.ok) {
+      if (res.status === 200) {
         toast.success("ลบข้อมูลสำเร็จ");
-        fetchUsers(); // 🚀 รีเฟรชข้อมูลใหม่
-      } else {
-        toast.error("ลบข้อมูลไม่สำเร็จ");
+        fetchUsers();
       }
     } catch (e) {
       toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
@@ -89,10 +140,13 @@ export default function ManagementPage() {
 
   // 🚀 ฟังก์ชัน Logout
   const handleLogout = () => {
+    localStorage.removeItem("token");
     localStorage.removeItem("isAdminLoggedIn");
     localStorage.removeItem("adminName");
+
     toast.success("ออกจากระบบสำเร็จ");
-    router.push("/login");
+
+    router.replace("/login");
   };
 
   return (
@@ -104,7 +158,7 @@ export default function ManagementPage() {
         </h1>
 
         <nav className="space-y-4 flex-1">
-          <Link href="/dashboard" className="w-full block">
+          <Link href="/admin/management/dashboard" className="w-full block">
             <Button
               variant="ghost"
               className="w-full justify-start text-white hover:text-white"
@@ -146,6 +200,8 @@ export default function ManagementPage() {
               <Input
                 placeholder="Search"
                 className="pl-8 bg-white border-slate-200"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             {/* Admin Profile */}
@@ -204,6 +260,7 @@ export default function ManagementPage() {
                       variant="ghost"
                       size="icon"
                       className="text-slate-500 hover:text-emerald-600"
+                      onClick={() => handleEdit(u.employee_id)}
                     >
                       <Settings2 size={16} />
                     </Button>
@@ -211,6 +268,7 @@ export default function ManagementPage() {
                       variant="ghost"
                       size="icon"
                       className="text-slate-500 hover:text-red-600"
+                      onClick={() => handleDelete(u.employee_id)}
                     >
                       <Trash2 size={16} />
                     </Button>
@@ -218,6 +276,7 @@ export default function ManagementPage() {
                       variant="ghost"
                       size="icon"
                       className="text-slate-500 hover:text-blue-600"
+                      onClick={() => router.push(`/view/${u.employee_id}`)}
                     >
                       <Eye size={16} />
                     </Button>
