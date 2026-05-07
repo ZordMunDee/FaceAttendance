@@ -1,148 +1,226 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import datetime
+from sqlalchemy import func
+
+import os
+import json
+import time
+import base64
+import threading
+from datetime import datetime, time as dt_time
+from dotenv import load_dotenv
+
+import numpy as np
+import cv2
+import face_recognition
+import serial
+
 import models
 import schemas
 from database import engine, get_db
-import face_recognition
-import numpy as np
-import cv2
-import base64
-import json
-import serial
-import time
-import threading
-import os
-from dotenv import load_dotenv
+from auth import create_access_token
 
-load_dotenv()
-models.Base.metadata.create_all(bind=engine)
+
+# =========================
+# APP INIT
+# =========================
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 🚀 ตั้งค่า Serial ตามสเปกของ SC-840 (9600, N, 8, 1)
+load_dotenv()
+models.Base.metadata.create_all(bind=engine)
+
+
+# =========================
+# SERIAL
+# =========================
 try:
-    ser = serial.Serial(os.getenv("SERIAL_PORT", 'COM3'), 9600, timeout=1)
-    print("✅ เชื่อมต่อ SC-840 สำเร็จ")
-except Exception as e:
+    ser = serial.Serial(os.getenv("SERIAL_PORT", "COM3"), 9600, timeout=1)
+    print("✅ SC-840 connected")
+except:
     ser = None
-    print(f"❌ ไม่พบพอร์ต SC-840: {e}")
+    print("❌ SC-840 not found")
 
-# 🚀 ฟังก์ชันควบคุม SC-840 ตามคู่มือ (ใช้ String @1 Nx)
+
+# =========================
+# RELAY
+# =========================
 def trigger_sc840_relay(channel: int):
-    # รูปแบบคำสั่ง: @1 (Address 1) N(ช่อง) สำหรับเปิด หรือ F(ช่อง) สำหรับปิด ตามคู่มือ
-    cmd_on = f"@1 N{channel}\r"  
-    cmd_off = f"@1 F{channel}\r"
-    
-    if ser and ser.is_open:
-        try:
-            # 1. ส่งคำสั่งเปิด
-            ser.write(cmd_on.encode()) 
-            print(f"💡 SC-840: ส่งคำสั่ง {cmd_on.strip()} (เปิดช่อง {channel})")
-            
-            time.sleep(3) # รอ 3 วินาที
-            
-            # 2. ส่งคำสั่งปิด
-            ser.write(cmd_off.encode())
-            print(f"💡 SC-840: ส่งคำสั่ง {cmd_off.strip()} (ปิดช่อง {channel})")
-        except Exception as e:
-            print(f"Error writing to SC-840: {e}")
-    else:
-        print(f"💡 [Simulation] SC-840 เปิด Relay ช่องที่ {channel}")
+    if not ser:
+        return print(f"[SIM] Relay {channel}")
 
-@app.post("/trigger-light/")
-async def trigger_light_endpoint():
-    # สั่งเปิด Relay ช่องที่ 1 (ไนซ์เปลี่ยนเลขช่องตรงนี้ได้เลย)
-    threading.Thread(target=trigger_sc840_relay, args=(1,)).start()
-    return {"message": "Light triggered"}
+    try:
+        ser.write(f"@1 N{channel}\r".encode())
+        time.sleep(3)
+        ser.write(f"@1 F{channel}\r".encode())
+    except Exception as e:
+        print("Relay error:", e)
 
-# 💡 ฟังก์ชันแปลงรูปภาพ
-def get_face_encoding_from_base64(base64_string: str):
+
+# =========================
+# FACE ENCODING
+# =========================
+def decode_face(base64_string: str):
     try:
         if "," in base64_string:
             base64_string = base64_string.split(",")[1]
-        img_data = base64.b64decode(base64_string)
-        nparr = np.frombuffer(img_data, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        encodings = face_recognition.face_encodings(rgb_img)
-        return encodings[0] if len(encodings) > 0 else None
-    except Exception as e:
-        print(f"Error decoding image: {e}")
+
+        img = base64.b64decode(base64_string)
+        arr = np.frombuffer(img, np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        enc = face_recognition.face_encodings(rgb)
+
+        return enc[0] if enc else None
+
+    except:
         return None
 
-# 🚀 1. ลงทะเบียน
+
+# =========================
+# ROOT
+# =========================
+@app.get("/")
+def root():
+    return {"message": "Backend running"}
+
+
+# =========================
+# USERS
+# =========================
 @app.post("/users/")
-async def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.employee_id == user.employee_id).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="รหัสพนักงานนี้มีในระบบแล้ว")
-    face_encoding = get_face_encoding_from_base64(user.image_base64)
-    if face_encoding is None:
-        raise HTTPException(status_code=400, detail="ไม่พบใบหน้า")
-    encoding_str = json.dumps(face_encoding.tolist())
-    db_user = models.User(employee_id=user.employee_id, fullname=user.fullname, is_admin=user.is_admin, face_encoding=encoding_str, status="In", timestamp=datetime.now())
-    db.add(db_user)
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+
+    if db.query(models.User).filter_by(employee_id=user.employee_id).first():
+        raise HTTPException(400, "exists")
+
+    enc = decode_face(user.image_base64)
+    if not enc:
+        raise HTTPException(400, "no face")
+
+    db.add(models.User(
+        employee_id=user.employee_id,
+        fullname=user.fullname,
+        is_admin=user.is_admin,
+        face_encoding=json.dumps(enc.tolist()),
+        status="In",
+        timestamp=datetime.now()
+    ))
+
     db.commit()
-    return {"message": "ลงทะเบียนสำเร็จ"}
+    return {"message": "ok"}
 
-# 🚀 2. สแกนเข้า-ออก (รวมการสั่งเปิดไฟไว้ที่นี่ด้วย)
-@app.post("/scan/")
-async def scan(data: schemas.ScanRequest, db: Session = Depends(get_db)):
-    incoming_encoding = get_face_encoding_from_base64(data.image_base64)
-    if incoming_encoding is None:
-        raise HTTPException(status_code=400, detail="กล้องจับใบหน้าไม่ชัด")
-    all_users = db.query(models.User).all()
-    known_encodings = []
-    known_users = []
-    for u in all_users:
-        if u.face_encoding and u.face_encoding != "dummy_data":
-            try:
-                known_encodings.append(np.array(json.loads(u.face_encoding)))
-                known_users.append(u)
-            except: continue
-    
-    face_distances = face_recognition.face_distance(known_encodings, incoming_encoding)
-    best_match_index = np.argmin(face_distances)
-    if face_distances[best_match_index] < 0.5:
-        matched_user = known_users[best_match_index]
-    else:
-        raise HTTPException(status_code=404, detail="ใบหน้าไม่ตรงกับพนักงาน")
 
-    matched_user.status = "Out" if matched_user.status == "In" else "In"
-    matched_user.timestamp = datetime.now() 
-    
-    new_log = models.ScanLog(employee_id=matched_user.employee_id, fullname=matched_user.fullname, status=matched_user.status, timestamp=matched_user.timestamp)
-    db.add(new_log)
-    db.commit()
-    
-    # 🚀 สั่งเปิด Relay ช่องที่ 1 หลังจากสแกนผ่านสำเร็จ
-    threading.Thread(target=trigger_sc840_relay, args=(1,)).start()
-    
-    return matched_user
-
-# 🚀 3-6. ส่วนของ Logs, Users, Login, Update, Delete
-@app.get("/scan/logs", response_model=list[schemas.LogResponse])
-async def get_logs(db: Session = Depends(get_db)):
-    return db.query(models.ScanLog).order_by(models.ScanLog.timestamp.desc()).all()
-
-@app.get("/users/", response_model=list[schemas.UserResponse])
-async def get_all_users(db: Session = Depends(get_db)):
+@app.get("/users/")
+def users(db: Session = Depends(get_db)):
     return db.query(models.User).all()
 
+
+# =========================
+# LOGIN
+# =========================
 @app.post("/login/")
-async def login(credentials: schemas.LoginRequest):
-    if credentials.username == os.getenv("ADMIN_USER") and credentials.password == os.getenv("ADMIN_PASS"):
-        return {"message": "Login Successful"}
-    raise HTTPException(status_code=401, detail="รหัสไม่ถูกต้อง")
+def login(data: schemas.LoginRequest):
+
+    if data.username == os.getenv("ADMIN_USER") and data.password == os.getenv("ADMIN_PASS"):
+        return {"message": "ok"}
+
+    raise HTTPException(401, "invalid")
+
+
+# =========================
+# SCAN (เวอร์ชันแก้บัคชื่อตัวแปร)
+# =========================
+@app.post("/scan/")
+def scan(data: schemas.ScanRequest, db: Session = Depends(get_db)):
+
+    
+    incoming_encoding = decode_face(data.image_base64)
+
+    if incoming_encoding is None:  
+        raise HTTPException(status_code=400, detail="กล้องจับใบหน้าไม่ชัด")
+
+    all_users = db.query(models.User).all()
+    if not all_users:
+        raise HTTPException(404, "ระบบยังไม่มีข้อมูลพนักงาน")
+
+    encs, refs = [], []
+    for u in all_users:
+        if u.face_encoding:
+            try:
+                encs.append(np.array(json.loads(u.face_encoding)))
+                refs.append(u)
+            except: continue
+
+    if not encs:
+        raise HTTPException(404, "ไม่พบข้อมูลใบหน้าในฐานข้อมูล")
+
+    
+    dist = face_recognition.face_distance(encs, incoming_encoding)
+    best = np.argmin(dist)
+
+    if dist[best] > 0.5:
+        raise HTTPException(404, "ใบหน้าไม่ตรงกับพนักงานคนใด")
+
+    user = refs[best]
+
+    # กำหนดสถานะ
+    status = data.scan_type
+    if status == "In" and datetime.now().time() > dt_time(8, 30):
+        status = "Late"
+
+    # อัปเดตข้อมูลพนักงาน
+    user.status = status
+    user.timestamp = datetime.now()
+
+    # บันทึก Log
+    db.add(models.ScanLog(
+        employee_id=user.employee_id,
+        fullname=user.fullname,
+        status=status,
+        timestamp=datetime.now()
+    ))
+
+    db.commit()
+
+    # สั่งเปิด Relay (ไนซ์อย่าลืมเช็ค Port COM3 นะครับ)
+    threading.Thread(target=trigger_sc840_relay, args=(1,)).start()
+
+    return {
+        "employee_id": user.employee_id,
+        "fullname": user.fullname,
+        "status": status
+    }
+
+
+# =========================
+# LOGS
+# =========================
+@app.get("/scan/logs")
+def logs(db: Session = Depends(get_db)):
+    return db.query(models.ScanLog).order_by(models.ScanLog.timestamp.desc()).all()
+
+
+# =========================
+# UPDATE / DELETE
+# =========================
+# 🚀 ตรวจสอบว่าใน main.py มี Route เหล่านี้ไหม
+@app.delete("/users/{emp_id}")
+async def delete_user(emp_id: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.employee_id == emp_id).first()
+    if not user: raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
+    db.delete(user)
+    db.commit()
+    return {"message": "ลบสำเร็จ"}
 
 @app.put("/users/{emp_id}")
 async def update_user(emp_id: str, data: schemas.UserUpdate, db: Session = Depends(get_db)):
@@ -153,10 +231,20 @@ async def update_user(emp_id: str, data: schemas.UserUpdate, db: Session = Depen
     db.commit()
     return {"message": "แก้ไขสำเร็จ"}
 
-@app.delete("/users/{emp_id}")
-async def delete_user(emp_id: str, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.employee_id == emp_id).first()
-    if not user: raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
-    db.delete(user)
-    db.commit()
-    return {"message": "ลบสำเร็จ"}
+
+# =========================
+# STATS
+# =========================
+@app.get("/stats/latecomers/")
+def stats(db: Session = Depends(get_db)):
+
+    result = db.query(
+        models.ScanLog.fullname,
+        func.count(models.ScanLog.id)
+    ).filter(
+        models.ScanLog.status == "In"
+    ).group_by(
+        models.ScanLog.fullname
+    ).all()
+
+    return [{"name": r[0], "count": r[1]} for r in result]

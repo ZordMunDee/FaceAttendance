@@ -1,28 +1,52 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Settings2, UserPlus, Trash2, ShieldCheck, LogOut } from "lucide-react";
-import Link from "next/link";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Settings2,
+  Trash2,
+  LayoutDashboard,
+  UserCheck,
+  Search,
+  Eye,
+  ShieldCheck,
+  UserPlus,
+  LogOut,
+} from "lucide-react"; // 🚀 เพิ่มไอคอนใหม่
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function ManagementPage() {
   const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [adminProfile, setAdminProfile] = useState({
+    name: "Admin",
+    role: "ADMIN",
+  });
 
   useEffect(() => {
-    // 🛡️ Guard: ตรวจตั๋ว VIP (ชื่อต้องตรงกันกับหน้า Login เป๊ะๆ)
-    const isLoggedIn = localStorage.getItem('isAdminLoggedIn');
-    
-    if (isLoggedIn !== 'true') {
-      router.push('/login');
+    const name = localStorage.getItem("adminName") || "Owen Radcliffe";
+    setAdminProfile({ name: name, role: "ADMIN" });
+  }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem("isAdminLoggedIn") !== "true") {
+      router.push("/login");
       return;
     }
-    
     fetchUsers();
   }, [router]);
 
@@ -38,111 +62,172 @@ export default function ManagementPage() {
     }
   };
 
-  const handleDelete = async (empId: string) => {
-    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบพนักงานรหัส " + empId + " ?")) return;
-    
+  // 🚀 เพิ่มฟังก์ชันลบพนักงาน
+  const handleDelete = async (employee_id: string) => {
+    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบพนักงานคนนี้?")) return;
+
     try {
-      const res = await fetch(`http://localhost:8000/users/${empId}`, { method: 'DELETE' });
+      const res = await fetch(`http://localhost:8000/users/${employee_id}`, {
+        method: "DELETE",
+      });
+
       if (res.ok) {
-        toast.success("ลบพนักงานสำเร็จ");
-        fetchUsers();
+        toast.success("ลบข้อมูลสำเร็จ");
+        fetchUsers(); // 🚀 รีเฟรชข้อมูลใหม่
       } else {
-        toast.error("ลบข้อมูลล้มเหลวจาก Server");
+        toast.error("ลบข้อมูลไม่สำเร็จ");
       }
     } catch (e) {
-      toast.error("ไม่สามารถติดต่อ Server ได้");
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     }
   };
 
-  const handleLogout = () => {
-    // 🚀 ลบตั๋วทิ้งแล้วดีดกลับหน้า Login
-    localStorage.removeItem('isAdminLoggedIn');
-    toast.success("ออกจากระบบเรียบร้อย");
-    router.push('/login');
+  // 🚀 เพิ่มฟังก์ชันนำทางไปหน้าแก้ไข (สมมติว่าไนซ์จะสร้างหน้า /edit/[id])
+  const handleEdit = (employee_id: string) => {
+    router.push(`/edit/${employee_id}`);
   };
 
-  // ป้องกันหน้ากระพริบตอนกำลังตรวจตั๋ว
-  if (loading) {
-    return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">กำลังตรวจสอบสิทธิ์...</div>;
-  }
+  // 🚀 ฟังก์ชัน Logout
+  const handleLogout = () => {
+    localStorage.removeItem("isAdminLoggedIn");
+    localStorage.removeItem("adminName");
+    toast.success("ออกจากระบบสำเร็จ");
+    router.push("/login");
+  };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50 p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-        
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-6 gap-4">
-          <div>
-            <h1 className="text-4xl font-black italic tracking-tighter">MANAGEMENT <span className="text-emerald-500">DASHBOARD</span></h1>
-            <p className="text-slate-400 mt-1">ระบบจัดการพนักงานและสิทธิ์การเข้าถึง</p>
-          </div>
-          <div className="flex gap-3 w-full sm:w-auto">
-            <Button onClick={handleLogout} variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10 flex-1 sm:flex-none">
-              <LogOut className="mr-2 h-4 w-4" /> ออกจากระบบ
+    <div className="flex min-h-screen bg-slate-50 text-slate-900">
+      {/* 🚀 Sidebar: เปลี่ยนเป็นสีน้ำเงินเข้มตามรูป */}
+      <aside className="w-64 bg-[#0A1D37] border-r border-slate-200 p-6 flex flex-col text-white">
+        <h1 className="text-xl font-bold mb-8 flex items-center gap-2">
+          <Settings2 className="text-emerald-500" /> MANAGEMENT
+        </h1>
+
+        <nav className="space-y-4 flex-1">
+          <Link href="/dashboard" className="w-full block">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-white hover:text-white"
+            >
+              <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
             </Button>
-            <Button asChild className="bg-emerald-600 hover:bg-emerald-500 text-white flex-1 sm:flex-none">
-              <Link href="/register">
-                <UserPlus className="mr-2 h-4 w-4" /> เพิ่มพนักงาน
-              </Link>
-            </Button>
+          </Link>
+          {/* ปุ่ม Active ให้ใช้สีพื้นหลังเข้มขึ้นนิดนึง */}
+          <Button
+            variant="secondary"
+            className="w-full justify-start bg-slate-800 text-white"
+          >
+            <UserCheck className="mr-2 h-4 w-4" /> Face Management
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-emerald-400 hover:bg-slate-800"
+            onClick={() => router.push("/register")}
+          >
+            <UserPlus className="mr-2 h-4 w-4" /> ลงทะเบียนพนักงานใหม่
+          </Button>
+        </nav>
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          className="w-full justify-start text-red-400 hover:bg-slate-800"
+        >
+          <LogOut className="mr-2 h-4 w-4" /> ออกจากระบบ
+        </Button>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 p-8">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-2xl font-bold text-slate-800">Face Management</h2>
+          <div className="flex items-center gap-6">
+            <div className="relative w-72">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search"
+                className="pl-8 bg-white border-slate-200"
+              />
+            </div>
+            {/* Admin Profile */}
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm font-bold text-slate-900">
+                  {adminProfile.name}
+                </p>
+                <p className="text-xs text-emerald-600">{adminProfile.role}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center">
+                <ShieldCheck className="text-emerald-600" size={20} />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Table Section */}
-        <Card className="bg-slate-900 border-slate-800 shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Settings2 className="text-emerald-500" /> รายชื่อพนักงานในระบบ
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-xl border border-slate-800 overflow-hidden">
-              <Table>
-                <TableHeader className="bg-slate-950/50">
-                  <TableRow className="border-slate-800 hover:bg-transparent">
-                    <TableHead className="w-[150px]">รหัสพนักงาน</TableHead>
-                    <TableHead>ชื่อ-นามสกุล</TableHead>
-                    <TableHead>สถานะ</TableHead>
-                    <TableHead className="text-right">จัดการ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-slate-500">
-                        ยังไม่มีข้อมูลพนักงานในระบบ
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    users.map((u) => (
-                      <TableRow key={u.employee_id} className="border-slate-800 hover:bg-slate-800/50 transition-colors">
-                        <TableCell className="font-mono font-semibold text-emerald-400">{u.employee_id}</TableCell>
-                        <TableCell className="font-medium">{u.fullname}</TableCell>
-                        <TableCell>
-                          {u.is_admin ? (
-                            <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full w-fit border border-emerald-500/20">
-                              <ShieldCheck size={14}/> Admin
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full w-fit border border-slate-700">
-                              Employee
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(u.employee_id)} className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10 transition-colors">
-                            <Trash2 size={18} />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+        {/* ตารางข้อมูล: เปลี่ยนเป็นพื้นหลังขาว ขอบเทาอ่อน */}
+        {/* 🚀 ตารางข้อมูล: ใช้ grid-cols-3 เพื่อล็อคความกว้างแต่ละคอลัมน์ให้เท่ากันเป๊ะ */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              {/* ใช้ grid-cols-3 แบ่ง 3 ส่วนเท่าๆ กัน */}
+              <TableRow className="grid grid-cols-3 items-center h-14 border-b border-slate-200 hover:bg-transparent">
+                <TableHead className="pl-6 text-slate-600">
+                  ชื่อ-นามสกุล
+                </TableHead>
+                <TableHead className="text-center text-slate-600">
+                  สถานะข้อมูลใบหน้า
+                </TableHead>
+                <TableHead className="text-right pr-6 text-slate-600">
+                  การแก้ไข
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {users.map((u) => (
+                <TableRow
+                  key={u.employee_id}
+                  // ใช้ grid-cols-3 เหมือนกัน เพื่อให้ตรงกับ Header
+                  className="grid grid-cols-3 items-center h-16 border-b border-slate-100 hover:bg-slate-100 even:bg-blue-50"
+                >
+                  <TableCell className="font-medium pl-6 text-slate-900 truncate">
+                    {u.fullname}
+                  </TableCell>
+
+                  {/* สถานะจะอยู่ตรงกลางของช่องที่ 2 เสมอ */}
+                  <TableCell className="text-emerald-600 flex justify-center">
+                    <span className="text-center">กำลังใช้งาน</span>
+                  </TableCell>
+
+                  {/* ปุ่มจะอยู่ขวาสุดของช่องที่ 3 เสมอ */}
+                  <TableCell className="pr-6 flex gap-2 justify-end">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-slate-500 hover:text-emerald-600"
+                    >
+                      <Settings2 size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-slate-500 hover:text-red-600"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-slate-500 hover:text-blue-600"
+                    >
+                      <Eye size={16} />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </main>
+    </div>
   );
 }

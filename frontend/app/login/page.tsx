@@ -1,18 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Lock, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
   const router = useRouter();
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const handleLogin = async () => {
     try {
@@ -23,56 +23,87 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        // 🚀 ออกตั๋ว VIP ลงเครื่อง
         localStorage.setItem("isAdminLoggedIn", "true");
-        toast.success("เข้าสู่ระบบ Admin สำเร็จ!");
-        router.push("/admin/management"); 
+        toast.success("เข้าสู่ระบบสำเร็จ!");
+        router.push("/admin/management");
       } else {
-        // 🚀 แจ้งเตือนเมื่อรหัสผิด
         toast.error("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง!");
       }
-    } catch (e) {
-      toast.error("ไม่สามารถเชื่อมต่อกับ Server ได้");
+    } catch (err) {
+      toast.error("ไม่สามารถเชื่อมต่อ Server ได้");
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-      <Card className="w-full max-w-sm bg-slate-900 border-slate-800 p-8 space-y-6">
-        <div className="text-center">
-          <Lock className="mx-auto text-emerald-500 mb-2" size={40} />
-          <h1 className="text-2xl font-bold text-white">ADMIN LOGIN</h1>
-        </div>
+    <main
+      className="min-h-screen flex items-center justify-center p-6 relative"
+      style={{
+        backgroundImage: "url('/background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* overlay */}
+      <div className="absolute inset-0 bg-blue-200/30 backdrop-blur-sm" />
 
-        <div className="space-y-4">
-          <Input
+      {/* box */}
+      <div className="relative w-full max-w-md text-center space-y-6">
+        <h1 className="text-4xl font-semibold text-slate-800">Sign in</h1>
+
+        {/* FORM */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleLogin();
+          }}
+          className="space-y-4"
+        >
+          {/* username */}
+          <input
+            type="text"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="bg-slate-950 border-slate-700 text-white"
+            className="w-full px-6 py-4 rounded-xl bg-white/80 shadow-md backdrop-blur-md border border-white/40 focus:outline-none focus:ring-2 focus:ring-blue-300 text-black"
           />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="bg-slate-950 border-slate-700 text-white"
-          />
-        </div>
 
-        <Button
-          onClick={handleLogin}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
-        >
-          เข้าสู่ระบบ
-        </Button>
+          {/* password */}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-6 py-4 pr-12 rounded-xl bg-white/80 shadow-md backdrop-blur-md border border-white/40 focus:outline-none focus:ring-2 focus:ring-blue-300 text-black"
+            />
 
-        <Button variant="ghost" asChild className="w-full text-slate-400 hover:text-white">
-          <Link href="/">
-            <ArrowLeft className="mr-2" size={16} /> กลับหน้าหลัก
-          </Link>
-        </Button>
-      </Card>
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+
+          {/* remember */}
+          <div className="flex items-center gap-2 text-sm text-slate-700 justify-start px-2">
+            <input type="checkbox" className="accent-blue-500" />
+            <span className="text-white">Remember me</span>
+          </div>
+
+          {/* button */}
+          <button
+            type="submit"
+            className="w-full py-4 rounded-xl text-white text-lg font-medium shadow-md 
+            bg-gradient-to-r from-[#0a1d37] via-blue-900 to-blue-400 
+            hover:from-[#08162a] hover:via-blue-600 hover:to-blue-300 
+            active:scale-[0.98] transition-all duration-200"
+          >
+            Login
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

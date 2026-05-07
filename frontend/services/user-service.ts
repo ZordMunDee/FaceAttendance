@@ -44,12 +44,11 @@ export const userService = {
 
 
  // สแกนใบหน้า (ส่งแค่รูปไปให้ AI วิเคราะห์)
-  scan: async (image_base64: string) => {
-    const response = await axios.post(`${API_URL}/scan/`, { 
-      image_base64 
-    });
-    return response.data;
-  },
+  // แก้ใน user-service.ts
+scan: async (image_base64: string) => {
+  const response = await axios.post(`${API_URL}/scan/`, { image_base64 });
+  return response.data; // 👈 ถ้าตรงนี้ส่งมาเป็น { "employee_id": ..., "fullname": ... } อยู่แล้ว ก็ถูกต้องครับ
+},
 
   // ลงทะเบียน
   register: async (data: RegisterRequest) => {

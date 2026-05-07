@@ -11,7 +11,7 @@ class UserCreate(BaseModel):
 # backend/schemas.py
 class ScanRequest(BaseModel):
     image_base64: str
-    employee_id: Optional[str] = None # 🚀 ใส่ Optional ไว้เผื่อไม่ได้ส่งมา
+    scan_type: str  # เพิ่มฟิลด์นี้: "In" หรือ "Out"
 
 # backend/schemas.py
 
