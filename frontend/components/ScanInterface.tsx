@@ -18,6 +18,8 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
   const webcamRef = useRef<any>(null);
   const router = useRouter();
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
   const handleScan = async () => {
     if (loading || !type) return;
 
@@ -33,7 +35,7 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
 
     try {
       // 🚀 ส่งทั้ง Base64 และ type ('In' หรือ 'Out') ไปที่ Backend
-      const res = await fetch("http://127.0.0.1:8000/scan/", {
+      const res = await fetch(`${API_URL}/scan/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,7 +66,7 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
       }
 
       // สั่งเปิดไฟ
-      fetch("http://127.0.0.1:8000/trigger-light/", { method: "POST" }).catch(console.warn);
+      fetch(`${API_URL}/trigger-light/`, { method: "POST" }).catch(console.warn);
 
       setPopup({ show: true, type: 'success', title, subtitle });
 
