@@ -10,6 +10,11 @@ RUN npm install
 # ก๊อปปี้โค้ดทั้งหมด
 COPY . .
 
+ARG NEXT_PUBLIC_API_URL
+
+# 2. เอาค่าที่รับมา ยัดใส่ Environment ของ Next.js
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # Build โปรเจกต์
 RUN npm run build
 
