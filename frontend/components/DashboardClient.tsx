@@ -196,16 +196,16 @@ export function DashboardClient() {
           <ul className="space-y-1">
             <li>
               <Button
-                  variant="ghost"
-                  className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${
-                    isActive("/admin/management/dashboard")
-                      ? "bg-white text-gray-800 font-semibold shadow-md"
-                      : "text-white hover:bg-white/10"
-                  }`}
-                >
-                  <LayoutDashboard className="mr-3 h-5 w-5" />
-                  Dashboard
-                </Button>
+                variant="ghost"
+                className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${
+                  isActive("/admin/management/dashboard")
+                    ? "bg-white text-gray-800 font-semibold shadow-md"
+                    : "text-white hover:bg-white/10"
+                }`}
+              >
+                <LayoutDashboard className="mr-3 h-5 w-5" />
+                Dashboard
+              </Button>
             </li>
             <li>
               <Link href="/admin/management">
@@ -242,7 +242,7 @@ export function DashboardClient() {
       {/* ================= MAIN CONTENT ================= */}
       <main className="flex-1 p-10 overflow-y-auto">
         {/* HEADER */}
-        
+
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-extrabold text-[#324565]">
             {date
@@ -254,7 +254,7 @@ export function DashboardClient() {
                 })
               : "แผงควบคุมระบบ"}
           </h2>
-          
+
           <div className="flex items-center gap-3">
             <img
               src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owen"
@@ -460,6 +460,7 @@ export function DashboardClient() {
                             year: "numeric",
                             month: "numeric",
                             day: "numeric",
+                            timeZone: "Asia/Bangkok", // 👈 เพิ่มบรรทัดนี้
                           })}
                         </TableCell>
 
