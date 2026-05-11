@@ -53,11 +53,11 @@ services:
   # ☁️ Cloudflare Tunnel (ตัวเปิดวาร์ป)
   # ☁️ Tunnel สำหรับหน้าบ้าน (อันเดิมที่ไนซ์มี)
   # ☁️ ตัวที่ 1: สำหรับหน้าบ้าน
-  cloudflare_tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflare_tunnel
-    restart: always
-    command: tunnel --no-autoupdate run --token eyJhIjoiZWE5NmIxZTdkNjFmMWE0Mzg1MGMwNTNmMDM2YTVmY2MiLCJ0IjoiMTNiZTRlMGEtMjE2NC00ZjVkLTk1NGQtNmFkYzBiNThlN2YwIiwicyI6Ik9HWTJPV1JsTURZdE4yWTROaTAwTlROaUxUZzNNR0l0TkdFeU9UQmlNR0ZtT0dVeSJ9
+  # cloudflare_tunnel:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: cloudflare_tunnel
+  #   restart: always
+  #   command: tunnel --no-autoupdate run --token eyJhIjoiZWE5NmIxZTdkNjFmMWE0Mzg1MGMwNTNmMDM2YTVmY2MiLCJ0IjoiMTNiZTRlMGEtMjE2NC00ZjVkLTk1NGQtNmFkYzBiNThlN2YwIiwicyI6Ik9HWTJPV1JsTURZdE4yWTROaTAwTlROaUxUZzNNR0l0TkdFeU9UQmlNR0ZtT0dVeSJ9
 
 volumes:
   db_data:
