@@ -1,28 +1,58 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import axios from 'axios';
-import Webcam from 'react-webcam';
-import Link from 'next/link';
-import { ArrowLeft, UserPlus, Loader2, ShieldCheck, RefreshCw, ScanFace, CheckCircle2 } from 'lucide-react';
+import { useState, useRef } from "react";
+import axios from "axios";
+import Webcam from "react-webcam";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  UserPlus,
+  Loader2,
+  ShieldCheck,
+  RefreshCw,
+  ScanFace,
+  CheckCircle2,
+  User,
+  Menu,
+  LayoutDashboard,
+  UserCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import React from "react";
+
 
 // 🚀 เปลี่ยน URL ตรงนี้ตามที่รัน Backend ไว้นะครับ
-const API_URL = 'http://127.0.0.1:8000';
+const API_URL = "http://127.0.0.1:8000";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
-  const [regData, setRegData] = useState({ fullname: '', employee_id: '' });
+  const router = useRouter();
+  const pathname = usePathname();
+
+
+  const isActive = (path: string) => pathname === path;
+  // เพิ่ม position เข้าไปใน state เพื่อให้กรอกข้อมูลฟอร์มได้ครบตามดีไซน์
+  const [regData, setRegData] = useState({
+    fullname: "",
+    position: "",
+    employee_id: "",
+  });
   const webcamRef = useRef<Webcam | null>(null);
 
+  
+
   // Liveness States (Simulation Mode)
-  const [step, setStep] = useState<'idle' | 'look_straight' | 'blink' | 'turn_right' | 'done'>('idle');
+  const [step, setStep] = useState<
+    "idle" | "look_straight" | "blink" | "turn_right" | "done"
+  >("idle");
   const [progress, setProgress] = useState(0);
+
+  
 
   // 🚀 ฟังก์ชันเริ่มการตรวจจับแบบ Step-by-Step
   const startLivenessCheck = async () => {
@@ -32,51 +62,80 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    
+
     try {
-      // 1. ขั้นตอน: มองหน้าตรง
-      setStep('look_straight');
+      setStep("look_straight");
       setProgress(25);
-      await new Promise(r => setTimeout(r, 2500)); // หน่วงเวลาจำลองการแสกน
+      await new Promise((r) => setTimeout(r, 3500));
+
       const img1 = webcamRef.current?.getScreenshot();
 
-      // 2. ขั้นตอน: กระพริบตา (Challenge)
-      setStep('blink');
+      // ✅ 1. เช็คดักไว้ก่อนเลยว่ากล้องถ่ายรูปติดไหม
+      if (!img1) {
+        toast.error("ไม่สามารถถ่ายรูปได้ กรุณาตรวจสอบการอนุญาตใช้งานกล้อง");
+        setStep("idle");
+        setProgress(0);
+        setLoading(false);
+        return;
+      }
+
+      setStep("blink");
       setProgress(50);
       toast.info("Step 2: กรุณากระพริบตา 1 ครั้ง");
-      await new Promise(r => setTimeout(r, 3000));
-      
-      // 3. ขั้นตอน: หันขวา (Challenge)
-      setStep('turn_right');
+      await new Promise((r) => setTimeout(r, 3000));
+
+      setStep("turn_right");
       setProgress(75);
       toast.info("Step 3: กรุณาหันหน้าไปทางขวา");
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
 
-      // 4. ขั้นตอน: วิเคราะห์สำเร็จ
-      setStep('done');
+      setStep("done");
       setProgress(100);
-      toast.success("วิเคราะห์ใบหน้าสำเร็จ!");
-      
-      // 🚀 ส่งข้อมูลไปที่ Backend ( FastAPI )
-      await axios.post(`${API_URL}/users/`, { 
-        ...regData, 
-        image_base64: img1 // ส่งรูปแรก (หน้าตรง) ไปเป็นโปรไฟล์
+
+      // 🚀 ส่งข้อมูลไปที่ Backend
+      await axios.post(`${API_URL}/users/`, {
+        fullname: regData.fullname,
+        employee_id: regData.employee_id,
+        position: regData.position,
+        image_base64: img1,
+        is_admin: false,
       });
 
-      toast.success("ลงทะเบียนสำเร็จ!", { description: "ข้อมูลพนักงานถูกบันทึกเรียบร้อย" });
-      
-      // Reset ฟอร์มหลังผ่านไป 2 วินาที
+      toast.success("วิเคราะห์ใบหน้าสำเร็จ!");
+      toast.success("ลงทะเบียนสำเร็จ!", {
+        description: "ข้อมูลพนักงานถูกบันทึกเรียบร้อย",
+      });
+
       setTimeout(() => {
-        setRegData({ fullname: '', employee_id: '' });
-        setStep('idle');
+        setRegData({ fullname: "", position: "", employee_id: "" });
+        setStep("idle");
         setProgress(0);
         setLoading(false);
       }, 2000);
-
     } catch (error: any) {
-      console.error("API Error:", error);
-      toast.error("ล้มเหลว", { description: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้" });
-      setStep('idle');
+      // ✅ 2. ดึงข้อความ Error จาก Backend มาโชว์ให้รู้กันไปเลย!
+      console.log("🔥 ERROR DETAIL:", error.response?.data);
+
+      const errorDetail = error.response?.data?.detail;
+      let errorMessage = "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้";
+
+      // แปลงข้อความจาก Backend ให้เป็นภาษาไทยอ่านง่ายๆ
+      if (errorDetail === "exists") {
+        errorMessage = "รหัสพนักงานนี้มีในระบบแล้ว!";
+      } else if (errorDetail === "no face") {
+        errorMessage = "ระบบตรวจไม่พบใบหน้า กรุณาอยู่ในที่สว่างและมองกล้อง";
+      } else if (typeof errorDetail === "object") {
+        // กรณีข้อมูลไม่ครบ (Validation Error)
+        errorMessage = "ส่งข้อมูลไม่ถูกต้อง กรุณาตรวจสอบฟอร์ม";
+      } else if (errorDetail) {
+        errorMessage = errorDetail;
+      }
+
+      toast.error("ลงทะเบียนไม่สำเร็จ", {
+        description: errorMessage,
+      });
+
+      setStep("idle");
       setProgress(0);
       setLoading(false);
     }
@@ -84,140 +143,269 @@ export default function RegisterPage() {
 
   const getStatusText = () => {
     switch (step) {
-      case 'look_straight': return "มองหน้าตรง";
-      case 'blink': return "กะพริบตา";
-      case 'turn_right': return "หันไปทางขวา";
-      case 'done': return "วิเคราะห์สำเร็จ";
-      default: return "รอเริ่มการทำงาน";
+      case "look_straight":
+        return "มองหน้าตรง";
+      case "blink":
+        return "กะพริบตา";
+      case "turn_right":
+        return "หันไปทางขวา";
+      case "done":
+        return "วิเคราะห์สำเร็จ";
+      default:
+        return "รอเริ่มการทำงาน";
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center py-12 px-4 font-sans selection:bg-emerald-500/30">
-      
-      {/* 🧭 Header & Navigation */}
-      <div className="w-full max-w-5xl flex justify-between items-center mb-10">
-        <Button variant="ghost" asChild className="text-slate-400 hover:text-white transition-colors">
-          <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> เมนูหลัก</Link>
-        </Button>
-        <div className="flex items-center gap-3 bg-slate-900/50 px-4 py-2 rounded-2xl border border-slate-800">
-          <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-500">
-            <UserPlus size={20} />
-          </div>
-          <h1 className="font-bold text-lg uppercase tracking-widest text-slate-200">AI Registration</h1>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 w-full max-w-5xl">
-        
-        {/* 📸 ส่วนกล้อง (Camera Viewport) */}
-        <div className="lg:col-span-3 space-y-6">
-          <div className={`relative aspect-video rounded-[2.5rem] border-2 transition-all duration-500 overflow-hidden shadow-2xl bg-slate-900 ${
-            step === 'idle' ? 'border-slate-800' : 'border-emerald-500 shadow-emerald-500/10'
-          }`}>
-            
-            <Webcam
-              ref={webcamRef}
-              mirrored
-              screenshotFormat="image/jpeg"
-              videoConstraints={{ width: 1280, height: 720, facingMode: "user" }}
-              className="w-full h-full object-cover"
-            />
-
-            {/* Overlay ข้อความสถานะ */}
-            {step !== 'idle' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-between p-10 pointer-events-none">
-                <div className="bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">{getStatusText()}</span>
-                </div>
-
-                <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-white/10 p-6 rounded-3xl text-center shadow-2xl">
-                   <p className="text-xl font-bold text-white mb-1 flex items-center justify-center gap-3">
-                      <ScanFace size={24} className="text-emerald-400" />
-                      {step === 'look_straight' && "กรุณามองตรงมาที่กล้อง"}
-                      {step === 'blink' && "กรุณากะพริบตา 1 ครั้ง"}
-                      {step === 'turn_right' && "กรุณาหันหน้าไปทางขวา"}
-                      {step === 'done' && "ยืนยันตัวตนสำเร็จ!"}
-                   </p>
-                </div>
-              </div>
-            )}
-
-            {/* Effect เมื่อสำเร็จ */}
-            {step === 'done' && (
-              <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in duration-500">
-                <div className="bg-emerald-500 text-white p-6 rounded-full shadow-[0_0_50px_rgba(16,185,129,0.5)]">
-                  <CheckCircle2 size={64} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="px-6 space-y-2">
-             <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                <span>Verification Progress</span>
-                <span>{progress}%</span>
-             </div>
-             <Progress value={progress} className="h-1.5 bg-slate-900" />
-          </div>
+    <div className="flex h-screen bg-[#eaf0f6] font-sans selection:bg-[#4a6396]/30">
+      {/* 🟦 Sidebar (ยึดตามดีไซน์รูป) */}
+      <aside className="w-64 bg-[#4a6396] text-white flex flex-col shrink-0">
+        <div className="p-6 flex items-center gap-4 text-xl font-bold tracking-wide">
+          <Menu className="w-6 h-6" />
+          MANAGEMENT
         </div>
 
-        {/* 📝 ส่วนฟอร์มข้อมูล (Registration Form) */}
-        <Card className="lg:col-span-2 bg-slate-900 border-slate-800 flex flex-col shadow-2xl rounded-[2.5rem]">
-          <CardHeader className="p-8">
-            <div className="flex items-center gap-2 text-emerald-500 mb-2">
-               <ShieldCheck size={20} />
-               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Secure Protocol</span>
-            </div>
-            <CardTitle className="text-2xl font-bold">ข้อมูลพนักงาน</CardTitle>
-            <CardDescription className="text-slate-500">ลงทะเบียนเข้าสู่ระบบด้วยใบหน้า</CardDescription>
-          </CardHeader>
-
-          <CardContent className="p-8 pt-0 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-slate-400 ml-1">รหัสพนักงาน</Label>
-              <Input 
-                value={regData.employee_id}
-                onChange={(e) => setRegData({...regData, employee_id: e.target.value})}
-                placeholder="EX: EMP-001"
-                className="bg-slate-950 border-slate-800 h-14 rounded-2xl focus:ring-emerald-500/20 transition-all"
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-slate-400 ml-1">ชื่อ-นามสกุล</Label>
-              <Input 
-                value={regData.fullname}
-                onChange={(e) => setRegData({...regData, fullname: e.target.value})}
-                placeholder="John Doe"
-                className="bg-slate-950 border-slate-800 h-14 rounded-2xl focus:ring-emerald-500/20 transition-all"
-                disabled={loading}
-              />
-            </div>
-            
-            <div className="pt-4 space-y-4">
-              <Button 
-                onClick={startLivenessCheck}
-                disabled={loading}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 h-16 rounded-2xl text-lg font-black shadow-lg shadow-emerald-900/20 transition-all active:scale-[0.98]"
+        <nav className="flex-1 mt-4">
+          <ul className="space-y-1">
+            <li>
+              <Link href="/admin/management/dashboard">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${
+                  isActive("/admin/management/dashboard")
+                    ? "bg-white text-gray-800 font-semibold shadow-md"
+                    : "text-white hover:bg-white/10"
+                }`}
               >
-                {loading ? <><Loader2 className="mr-2 animate-spin" /> กำลังประมวลผล...</> : 'เริ่มขั้นตอนสแกนใบหน้า'}
+                <LayoutDashboard className="mr-3 h-5 w-5" />
+                Dashboard
               </Button>
-              
-              {step !== 'idle' && (
-                <Button variant="ghost" onClick={() => window.location.reload()} className="w-full text-slate-500 hover:text-white rounded-2xl h-12">
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/management">
+                <Button
+                  variant="ghost"
+                  className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${isActive("/admin/management") ? "bg-white text-gray-800 font-semibold" : "text-white hover:bg-white/10"}`}
+                >
+                  <ScanFace className="mr-3 h-5 w-5" /> Face Management
+                </Button>
+              </Link>
+            </li>
+            <li>
+              <Button
+                variant="ghost"
+                className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${
+                  isActive("/register")
+                    ? "bg-white text-gray-800 font-semibold shadow-md"
+                    : "text-white hover:bg-white/10"
+                }`}
+              >
+                <UserPlus className="mr-3 h-5 w-5" />
+                ลงทะเบียนพนักงานใหม่
+              </Button>
+            </li>
+          </ul>
+        </nav>
+      </aside>
+
+      {/* ⬜️ Main Layout */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Navigation */}
+        <header className="h-16 bg-white flex items-center justify-end px-8 shadow-sm shrink-0">
+          <div className="flex items-center gap-3">
+            <img
+              src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owen"
+              alt="Profile"
+              className="w-10 h-10 rounded-full bg-blue-100"
+            />
+            <div className="flex flex-col justify-center">
+              <span className="text-sm font-bold text-gray-800">
+                Owen Radcliffe
+              </span>
+              <span className="text-[10px] text-gray-500 font-semibold tracking-wider">
+                ADMIN
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto p-8">
+          <h1 className="text-2xl font-bold text-[#324565] mb-6">
+            ข้อมูลพนักงาน
+          </h1>
+
+          <div className="bg-white rounded-3xl p-10 shadow-sm w-full max-w-6xl">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+              {/* 📝 Left Section: Form */}
+              <div className="flex flex-col gap-6">
+                <div className="space-y-2">
+                  <Label className="text-gray-900 font-semibold text-base">
+                    ชื่อ-นามสกุล
+                  </Label>
+                  <Input
+                    value={regData.fullname}
+                    onChange={(e) =>
+                      setRegData({ ...regData, fullname: e.target.value })
+                    }
+                    placeholder="กรุณากรอกชื่อ-นามสกุล"
+                    disabled={loading || step === "done"}
+                    className="h-12 border-gray-300 rounded-lg focus-visible:ring-[#4a6396] text-gray-900 disabled:bg-gray-100"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-900 font-semibold text-base">
+                    ตำแหน่ง
+                  </Label>
+                  <Input
+                    value={regData.position}
+                    onChange={(e) =>
+                      setRegData({ ...regData, position: e.target.value })
+                    }
+                    placeholder="กรุณากรอกตำแหน่ง"
+                    disabled={loading || step === "done"}
+                    className="h-12 border-gray-300 rounded-lg focus-visible:ring-[#4a6396] text-gray-900 disabled:bg-gray-100"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-900 font-semibold text-base">
+                    ID
+                  </Label>
+                  <Input
+                    value={regData.employee_id}
+                    onChange={(e) =>
+                      setRegData({ ...regData, employee_id: e.target.value })
+                    }
+                    placeholder="กรุณากรอกรหัสพนักงาน"
+                    disabled={loading || step === "done"}
+                    className="h-12 border-gray-300 rounded-lg focus-visible:ring-[#4a6396] text-gray-900 disabled:bg-gray-100"
+                  />
+                </div>
+              </div>
+
+              {/* 📸 Right Section: Camera Viewport */}
+              <div className="flex flex-col">
+                <div
+                  className={`relative aspect-[4/3] w-full max-w-lg mx-auto rounded-2xl overflow-hidden bg-slate-900 border-4 transition-all duration-500 ${
+                    step === "idle"
+                      ? "border-[#d9d9d9]"
+                      : step === "done"
+                        ? "border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                        : "border-[#4a6396]"
+                  }`}
+                >
+                  <Webcam
+                    ref={webcamRef}
+                    mirrored
+                    screenshotFormat="image/jpeg"
+                    videoConstraints={{
+                      width: 1280,
+                      height: 720,
+                      facingMode: "user",
+                    }}
+                    className="w-full h-full object-cover"
+                  />
+
+                  {/* Overlay ข้อความสถานะ (คงเดิมจากของคุณ) */}
+                  {step !== "idle" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-between p-6 pointer-events-none">
+                      <div className="bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
+                        <div
+                          className={`w-2 h-2 rounded-full animate-pulse ${step === "done" ? "bg-emerald-500" : "bg-blue-400"}`}
+                        />
+                        <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+                          {getStatusText()}
+                        </span>
+                      </div>
+
+                      <div className="w-full max-w-sm bg-slate-900/80 backdrop-blur-md border border-white/10 p-4 rounded-2xl text-center shadow-xl">
+                        <p className="text-lg font-bold text-white flex items-center justify-center gap-2">
+                          <ScanFace
+                            size={20}
+                            className={
+                              step === "done"
+                                ? "text-emerald-400"
+                                : "text-blue-400"
+                            }
+                          />
+                          {step === "look_straight" && "กรุณามองตรงมาที่กล้อง"}
+                          {step === "blink" && "กรุณากะพริบตา 1 ครั้ง"}
+                          {step === "turn_right" && "กรุณาหันหน้าไปทางขวา"}
+                          {step === "done" && (
+                            <span className="text-emerald-400">
+                              ยืนยันตัวตนสำเร็จ!
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Effect เมื่อสำเร็จ */}
+                  {step === "done" && (
+                    <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in duration-500">
+                      <div className="bg-emerald-500 text-white p-5 rounded-full shadow-[0_0_40px_rgba(16,185,129,0.5)]">
+                        <CheckCircle2 size={56} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Progress Bar ใต้กล้อง */}
+                <div className="w-full max-w-lg mx-auto mt-4 px-2">
+                  <div className="flex justify-between text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+                    <span>Verification Progress</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress
+                    value={progress}
+                    className="h-2 bg-gray-200 [&>div]:bg-[#4a6396]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 🔘 Action Buttons */}
+            <div className="flex justify-center gap-4 mt-12 xl:justify-start">
+              {step === "idle" ? (
+                <Button
+                  onClick={startLivenessCheck}
+                  disabled={loading}
+                  className="px-8 h-12 bg-[#233559] text-white rounded-lg font-medium shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed hover:bg-[#3b82f6] hover:shadow-blue-500/20 hover:shadow-lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 animate-spin h-4 w-4" />{" "}
+                      กำลังเตรียมระบบ...
+                    </>
+                  ) : (
+                    "เริ่มขั้นตอนสแกนใบหน้า"
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => window.location.reload()}
+                  className="px-8 h-12 border-[#c8c8c8] text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
+                >
                   <RefreshCw className="mr-2 h-4 w-4" /> ยกเลิกและลองใหม่
                 </Button>
               )}
-            </div>
-          </CardContent>
 
-          <div className="p-6 bg-black/20 text-[10px] text-center text-slate-600 tracking-[0.3em] uppercase font-bold rounded-b-[2.5rem]">
-            Neural Liveness Verified
+              <Button
+                variant="ghost"
+                asChild
+                className="px-8 h-12 bg-[#c8c8c8] text-gray-800 hover:bg-gray-300 rounded-lg font-medium"
+              >
+                <Link href="/admin/management">ย้อนหลับ</Link>
+              </Button>
+            </div>
           </div>
-        </Card>
+        </main>
       </div>
-    </main>
+    </div>
   );
 }

@@ -1,14 +1,15 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract
+from sqlalchemy import desc, func, extract
 
 import os
 import json
 import time
 import base64
 import threading
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 from dotenv import load_dotenv
 
 import numpy as np
@@ -24,11 +25,22 @@ from auth import verify_token
 
 from fastapi import Header
 
+# =========================
+# STATIC FILES (อัปโหลดรูปภาพ)
+# =========================
+# 🚀 สั่งให้สร้างโฟลเดอร์ก่อน แล้วค่อย mount
+
+app = FastAPI()
+
+
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 
 # =========================
 # APP INIT
 # =========================
-app = FastAPI()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -114,24 +126,55 @@ def root():
 # =========================
 # USERS
 # =========================
+# 📂 main.py (แก้ตรงส่วน @app.post("/users/"))
+
+import base64 # อย่าลืมเช็คว่ามี import base64 ด้านบนสุดหรือยัง
+
 @app.post("/users/")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
-    if db.query(models.User).filter_by(employee_id=user.employee_id).first():
-        raise HTTPException(400, "exists")
-
+    # 1. แปลงรูปใบหน้า
     enc = decode_face(user.image_base64)
-
     if enc is None:
         raise HTTPException(400, "no face")
+
+    # 🚀 2. โค้ดสำหรับเซฟไฟล์รูปภาพจริงๆ ลงโฟลเดอร์ uploads
+    try:
+        # ตัดส่วนหัว data:image/jpeg;base64, ออกให้เหลือแต่ข้อมูลเพียวๆ
+        image_data = user.image_base64.split(",")[1] if "," in user.image_base64 else user.image_base64
+        # ตั้งชื่อไฟล์ตามรหัสพนักงานเลย เช่น 66200105.jpg
+        file_path = f"uploads/{user.employee_id}.jpg"
+        with open(file_path, "wb") as f:
+            f.write(base64.b64decode(image_data))
+    except Exception as e:
+        print("Save image error:", e)
+
+    # 3. ลองค้นหาดูว่ามีรหัสพนักงานนี้ในระบบหรือยัง (โค้ดดึงข้อมูลกลับมาที่ทำไว้เมื่อกี้)
+    existing_user = db.query(models.User).filter_by(employee_id=user.employee_id).first()
+
+    if existing_user:
+        if existing_user.is_deleted:
+            existing_user.fullname = user.fullname
+            existing_user.position = user.position
+            existing_user.is_admin = user.is_admin
+            existing_user.face_encoding = json.dumps(enc.tolist())
+            existing_user.is_deleted = False
+            existing_user.status = "In"
+            existing_user.timestamp = datetime.now()
+            db.commit()
+            return {"message": "reactivated"}
+        else:
+            raise HTTPException(400, "exists")
 
     db.add(models.User(
         employee_id=user.employee_id,
         fullname=user.fullname,
+        position=user.position,
         is_admin=user.is_admin,
         face_encoding=json.dumps(enc.tolist()),
         status="In",
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
+        is_deleted=False
     ))
 
     db.commit()
@@ -139,8 +182,9 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/users/")
-def users(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    return db.query(models.User).all()
+def users(db: Session = Depends(get_db)):
+    # 🚀 ดึงเฉพาะคนที่มี is_deleted เป็น False เท่านั้น
+    return db.query(models.User).filter(models.User.is_deleted == False).all()
 
 @app.get("/employees/count")
 def get_employee_count(db: Session = Depends(get_db), user=Depends(get_current_user)):
@@ -246,19 +290,31 @@ def logs(db: Session = Depends(get_db)):
 # UPDATE / DELETE
 # =========================
 # 🚀 ตรวจสอบว่าใน main.py มี Route เหล่านี้ไหม
+# @app.delete("/users/{emp_id}")
+# async def delete_user(emp_id: str, db: Session = Depends(get_db)):
+#     user = db.query(models.User).filter(models.User.employee_id == emp_id).first()
+#     if not user: raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
+#     db.delete(user)
+#     db.commit()
+#     return {"message": "ลบสำเร็จ"}
+# 📂 main.py
 @app.delete("/users/{emp_id}")
 async def delete_user(emp_id: str, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.employee_id == emp_id).first()
-    if not user: raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
-    db.delete(user)
+    if not user: 
+        raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
+    
+    # 🚀 แทนที่จะ db.delete(user) ให้ทำแบบนี้แทน:
+    user.is_deleted = True 
     db.commit()
-    return {"message": "ลบสำเร็จ"}
+    return {"message": "ลบพนักงานเรียบร้อย (Soft Delete)"}
 
 @app.put("/users/{emp_id}")
 async def update_user(emp_id: str, data: schemas.UserUpdate, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.employee_id == emp_id).first()
     if not user: raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
     user.fullname = data.fullname
+    user.position = data.position
     user.is_admin = data.is_admin
     db.commit()
     return {"message": "แก้ไขสำเร็จ"}
@@ -268,23 +324,28 @@ async def update_user(emp_id: str, data: schemas.UserUpdate, db: Session = Depen
 # STATS
 # =========================
 @app.get("/stats/latecomers/")
-def stats(db: Session = Depends(get_db)):
-
-    result = db.query(
-        models.ScanLog.fullname,
-        func.count(models.ScanLog.id).label("count")
+def get_latecomers(db: Session = Depends(get_db)):
+    # 🚀 สมมติว่าโค้ดเดิมเป็นการ query ScanLog
+    # ให้เพิ่มเงื่อนไข Join กับตาราง User และเช็คว่า is_deleted == False
+    
+    results = db.query(
+        models.User.fullname,
+        models.User.employee_id,
+        func.count(models.ScanLog.id).label('count')
+    ).join(
+        models.ScanLog, models.User.employee_id == models.ScanLog.employee_id
     ).filter(
-        models.ScanLog.status == "Late"
+        models.ScanLog.status == "Late",
+        models.User.is_deleted == False # 🚀 หัวใจสำคัญอยู่บรรทัดนี้!
     ).group_by(
-        models.ScanLog.fullname
+        models.User.fullname,
+        models.User.employee_id
     ).order_by(
-        func.count(models.ScanLog.id).desc()
+        desc('count')
     ).all()
 
-    return [
-        {"name": r[0], "count": r[1]}
-        for r in result
-    ]
+    # แปลงข้อมูลส่งกลับ
+    return [{"fullname": r.fullname, "employee_id": r.employee_id, "count": r.count} for r in results]
 
 
 @app.get("/stats/latecomers/monthly")
@@ -328,3 +389,14 @@ def late_monthly(db: Session = Depends(get_db)):
         }
         for r in result
     ]
+
+
+@app.get("/users/{employee_id}")
+def get_user(employee_id: str, db: Session = Depends(get_db)):
+    # ค้นหาพนักงานจาก employee_id
+    user = db.query(models.User).filter(models.User.employee_id == employee_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลพนักงาน")
+        
+    return user

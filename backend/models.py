@@ -11,8 +11,10 @@ class User(Base):
 
     employee_id = Column(String(50), primary_key=True, index=True)
     fullname = Column(String(255))
+    position = Column(String(100), nullable=True)
 
     is_admin = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False)
 
     # face encoding JSON ยาวมาก
     face_encoding = Column(String(12000))

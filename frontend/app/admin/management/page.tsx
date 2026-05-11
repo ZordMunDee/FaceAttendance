@@ -20,12 +20,28 @@ import {
   ShieldCheck,
   UserPlus,
   LogOut,
+  Menu,
+  AlertTriangle,
+  ScanFace,
 } from "lucide-react"; // 🚀 เพิ่มไอคอนใหม่
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -43,11 +59,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+interface User {
+  employee_id: string;
+  fullname: string;
+  position: string;
+  face_encoding: string | null; // 👈 ตัวนี้แหละคือสถานะใบหน้า
+  status: string;
+}
+
 export default function ManagementPage() {
-  type User = {
-    employee_id: string;
-    fullname: string;
-  };
+  // type User = {
+  //   employee_id: string;
+  //   fullname: string;
+  // };
 
   const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
@@ -58,7 +82,7 @@ export default function ManagementPage() {
     name: "Admin",
     role: "ADMIN",
   });
-
+  const isActive = (path: string) => pathname === path;
 
   useEffect(() => {
     const name = localStorage.getItem("adminName") || "Owen Radcliffe";
@@ -135,7 +159,7 @@ export default function ManagementPage() {
 
   // 🚀 เพิ่มฟังก์ชันนำทางไปหน้าแก้ไข (สมมติว่าไนซ์จะสร้างหน้า /edit/[id])
   const handleEdit = (employee_id: string) => {
-    router.push(`/edit/${employee_id}`);
+    router.push(`/admin/management/edit/${employee_id}`);
   };
 
   // 🚀 ฟังก์ชัน Logout
@@ -146,145 +170,238 @@ export default function ManagementPage() {
 
     toast.success("ออกจากระบบสำเร็จ");
 
-    router.replace("/login");
+    router.replace("/");
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      {/* 🚀 Sidebar: เปลี่ยนเป็นสีน้ำเงินเข้มตามรูป */}
-      <aside className="w-64 bg-[#0A1D37] border-r border-slate-200 p-6 flex flex-col text-white">
-        <h1 className="text-xl font-bold mb-8 flex items-center gap-2">
-          <Settings2 className="text-emerald-500" /> MANAGEMENT
-        </h1>
-
-        <nav className="space-y-4 flex-1">
-          <Link href="/admin/management/dashboard" className="w-full block">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-white hover:text-white"
-            >
-              <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
-            </Button>
-          </Link>
-          {/* ปุ่ม Active ให้ใช้สีพื้นหลังเข้มขึ้นนิดนึง */}
-          <Button
-            variant="secondary"
-            className="w-full justify-start bg-slate-800 text-white"
-          >
-            <UserCheck className="mr-2 h-4 w-4" /> Face Management
-          </Button>
+    <div className="flex min-h-screen bg-[#eaf0f6] text-slate-900 font-sans selection:bg-[#4a6396]/30 overflow-hidden">
+      {/* ================= SIDEBAR ================= */}
+      <aside className="w-64 bg-[#4a6396] text-white flex flex-col shrink-0 shadow-xl">
+        <div className="p-6 flex items-center gap-4 text-xl font-bold tracking-wide">
+          <Menu className="w-6 h-6" />
+          MANAGEMENT
+        </div>
+        <nav className="flex-1 mt-4">
+          <ul className="space-y-1 px-3">
+            <li>
+              <Link href="/admin/management/dashboard">
+                <Button
+                  variant="ghost"
+                  className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${
+                    isActive("/admin/management/dashboard")
+                      ? "bg-white text-gray-800 font-semibold shadow-md"
+                      : "text-white hover:bg-white/10"
+                  }`}
+                >
+                  <LayoutDashboard className="mr-3 h-5 w-5" />
+                  Dashboard
+                </Button>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/management">
+                <Button
+                  variant="ghost"
+                  className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${
+                    isActive("/admin/management")
+                      ? "bg-white text-gray-800 font-semibold shadow-md"
+                      : "text-white hover:bg-white/10"
+                  }`}
+                >
+                  <ScanFace className="mr-3 h-5 w-5" />
+                  Face Management
+                </Button>
+              </Link>
+            </li>
+            <li>
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/register")}
+                className="w-full justify-start rounded-full text-base px-6 h-12 text-white hover:bg-white/10"
+              >
+                <UserPlus className="mr-3 h-5 w-5" /> ลงทะเบียนพนักงานใหม่
+              </Button>
+            </li>
+          </ul>
+        </nav>
+        <div className="p-4 border-t border-white/10">
           <Button
             variant="ghost"
-            className="w-full justify-start text-emerald-400 hover:bg-slate-800"
-            onClick={() => router.push("/register")}
+            onClick={handleLogout}
+            className="w-full justify-center text-red-100 hover:bg-red-900/40 rounded-full h-11"
           >
-            <UserPlus className="mr-2 h-4 w-4" /> ลงทะเบียนพนักงานใหม่
+            <LogOut className="mr-2 h-4 w-4" /> ออกจากระบบ
           </Button>
-        </nav>
-        <Button
-          variant="ghost"
-          onClick={handleLogout}
-          className="w-full justify-start text-red-400 hover:bg-slate-800"
-        >
-          <LogOut className="mr-2 h-4 w-4" /> ออกจากระบบ
-        </Button>
+        </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-8">
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="flex-1 p-10 overflow-y-auto">
+        {/* HEADER */}
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-slate-800">Face Management</h2>
+          <h2 className="text-3xl font-extrabold text-[#324565]">
+            Face Management
+          </h2>
           <div className="flex items-center gap-6">
             <div className="relative w-72">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search"
-                className="pl-8 bg-white border-slate-200"
+                placeholder="ค้นหารายชื่อพนักงาน..."
+                className="pl-11 pr-4 bg-white border-none rounded-full h-11 shadow-sm focus-visible:ring-[#abc0d8]"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            {/* Admin Profile */}
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-bold text-slate-900">
+
+            <div className="flex items-center gap-3">
+              <img
+                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owen"
+                alt="Profile"
+                className="w-10 h-10 rounded-full bg-blue-100 border border-blue-200"
+              />
+              <div className="flex flex-col justify-center">
+                <span className="text-sm font-bold text-gray-800">
                   {adminProfile.name}
-                </p>
-                <p className="text-xs text-emerald-600">{adminProfile.role}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center">
-                <ShieldCheck className="text-emerald-600" size={20} />
+                </span>
+                <span className="text-[10px] text-gray-500 font-semibold tracking-wider uppercase">
+                  Admin
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ตารางข้อมูล: เปลี่ยนเป็นพื้นหลังขาว ขอบเทาอ่อน */}
-        {/* 🚀 ตารางข้อมูล: ใช้ grid-cols-3 เพื่อล็อคความกว้างแต่ละคอลัมน์ให้เท่ากันเป๊ะ */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* ================= TABLE AREA ================= */}
+        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl overflow-hidden flex flex-col">
           <Table>
-            <TableHeader className="bg-slate-50">
-              {/* ใช้ grid-cols-3 แบ่ง 3 ส่วนเท่าๆ กัน */}
-              <TableRow className="grid grid-cols-3 items-center h-14 border-b border-slate-200 hover:bg-transparent">
-                <TableHead className="pl-6 text-slate-600">
+            <TableHeader className="bg-transparent hover:bg-transparent">
+              <TableRow className="border-b border-gray-100 hover:bg-transparent">
+                <TableHead className="pl-10 uppercase text-xs font-bold text-gray-400 py-6">
                   ชื่อ-นามสกุล
                 </TableHead>
-                <TableHead className="text-center text-slate-600">
+                <TableHead className="text-center uppercase text-xs font-bold text-gray-400 py-6">
                   สถานะข้อมูลใบหน้า
                 </TableHead>
-                <TableHead className="text-right pr-6 text-slate-600">
+                <TableHead className="text-right pr-10 uppercase text-xs font-bold text-gray-400 py-6">
                   การแก้ไข
                 </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {users.map((u) => (
-                <TableRow
-                  key={u.employee_id}
-                  // ใช้ grid-cols-3 เหมือนกัน เพื่อให้ตรงกับ Header
-                  className="grid grid-cols-3 items-center h-16 border-b border-slate-100 hover:bg-slate-100 even:bg-blue-50"
-                >
-                  <TableCell className="font-medium pl-6 text-slate-900 truncate">
-                    {u.fullname}
-                  </TableCell>
+              {users
+                .filter((u) =>
+                  u.fullname.toLowerCase().includes(search.toLowerCase()),
+                ) // ✅ ใส่ Search Filter
+                .map((u, i) => (
+                  <TableRow
+                    key={u.employee_id}
+                    className={cn(
+                      "h-20 border-none transition-colors hover:bg-slate-100",
+                      i % 2 !== 0 ? "bg-[#f0f7ff]" : "bg-white",
+                    )}
+                  >
+                    <TableCell className="pl-10">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-800 text-base">
+                          {u.fullname}
+                        </span>
+                        <span className="text-[11px] text-gray-400 font-medium">
+                          ID: {u.employee_id}
+                        </span>
+                      </div>
+                    </TableCell>
 
-                  {/* สถานะจะอยู่ตรงกลางของช่องที่ 2 เสมอ */}
-                  <TableCell className="text-emerald-600 flex justify-center">
-                    <span className="text-center">กำลังใช้งาน</span>
-                  </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "px-5 py-1.5 rounded-full text-[12px] font-extrabold border-none",
+                          u.face_encoding
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-rose-100 text-rose-700",
+                        )}
+                      >
+                        {u.face_encoding ? "กำลังใช้งาน" : "ไม่พบข้อมูล"}
+                      </Badge>
+                    </TableCell>
 
-                  {/* ปุ่มจะอยู่ขวาสุดของช่องที่ 3 เสมอ */}
-                  <TableCell className="pr-6 flex gap-2 justify-end">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-slate-500 hover:text-emerald-600"
-                      onClick={() => handleEdit(u.employee_id)}
-                    >
-                      <Settings2 size={16} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-slate-500 hover:text-red-600"
-                      onClick={() => handleDelete(u.employee_id)}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-slate-500 hover:text-blue-600"
-                      onClick={() => router.push(`/view/${u.employee_id}`)}
-                    >
-                      <Eye size={16} />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell className="pr-10">
+                      <div className="flex gap-2 justify-end items-center">
+                        {/* 1. ปุ่มแก้ไข */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-10 h-10 rounded-full text-blue-500 hover:bg-blue-50"
+                          onClick={() => handleEdit(u.employee_id)}
+                        >
+                          <Settings2 size={18} />
+                        </Button>
+
+                        {/* 2. ปุ่มลบ (มาพร้อม Dialog สีแดง) */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="w-10 h-10 rounded-full text-rose-500 hover:bg-rose-50"
+                            >
+                              <Trash2 size={18} />
+                            </Button>
+                          </AlertDialogTrigger>
+
+                          <AlertDialogContent className="bg-[#bd4033] border-none rounded-[2.5rem] p-12 max-w-[450px]">
+                            <div className="flex flex-col items-center text-center">
+                              <div className="mb-6">
+                                <AlertTriangle
+                                  size={80}
+                                  className="text-white opacity-90"
+                                  strokeWidth={1.5}
+                                />
+                              </div>
+
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="text-white text-3xl font-bold mb-8">
+                                  ต้องการลบข้อมูลใบหน้า
+                                </AlertDialogTitle>
+                              </AlertDialogHeader>
+
+                              <AlertDialogFooter className="flex-row gap-4 sm:justify-center w-full">
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(u.employee_id)}
+                                  className="bg-[#1a2e4c] hover:bg-[#1a2e4c]/90 text-white rounded-xl px-10 h-12 text-base font-bold border-none"
+                                >
+                                  ยืนยัน
+                                </AlertDialogAction>
+                                <AlertDialogCancel className="bg-[#bcbcbc] hover:bg-[#bcbcbc]/90 text-gray-800 rounded-xl px-10 h-12 text-base font-bold border-none mt-0">
+                                  ยกเลิก
+                                </AlertDialogCancel>
+                              </AlertDialogFooter>
+                            </div>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        {/* 3. ปุ่มดูรายละเอียด */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-10 h-10 rounded-full text-slate-400 hover:bg-slate-100"
+                          onClick={() => router.push(`/admin/management/view/${u.employee_id}`)}
+                        >
+                          <Eye size={18} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
+
+          {users.length === 0 && (
+            <div className="py-20 text-center text-gray-400 font-medium">
+              ไม่พบรายชื่อพนักงานในระบบ
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -1,0 +1,33 @@
+--- 1. PREREQUISITES (สิ่งที่ต้องเตรียม) ---
+A. ติดตั้ง Docker Desktop (ไม่ต้องติดตั้ง Python หรือ Node.js ในเครื่องแล้ว!)
+B. (ถ้ามี) ตรวจสอบว่าไม่ได้เปิด MySQL หรือ XAMPP ค้างไว้ในเครื่อง เพื่อป้องกัน Port 3306 ชนกัน
+
+--- 2. การตั้งค่า Environment (.env) ---
+A. ไม่ต้องตั้งค่า Database แบบ Manual อีกต่อไป ทุกอย่างเชื่อมต่อกันอัตโนมัติผ่าน Docker Network
+B. สำหรับ Backend (ตั้งในไฟล์ docker-compose.yml หรือ .env):
+   DATABASE_URL=mysql+pymysql://root:123456@db:3306/face_attendance
+   ADMIN_USER=admin
+   ADMIN_PASS=1234
+
+--- 3. วิธีรันระบบ (SETUP & RUN) ---
+A. เปิด Terminal (หรือ Command Prompt) ไปที่โฟลเดอร์หลักของโปรเจกต์
+B. พิมพ์คำสั่งเดียวเพื่อรันทั้งระบบ (Frontend, Backend, Database, phpMyAdmin):
+   docker-compose up --build -d
+
+C. ช่องทางการเข้าใช้งาน:
+   - 🌐 หน้าเว็บหลัก (Next.js): http://localhost:3000
+   - ⚙️ API Backend (FastAPI): http://localhost:8000/docs
+   - 🐘 จัดการฐานข้อมูล (phpMyAdmin): http://localhost:8080 (User: root / Pass: 123456)
+
+--- 4. HARDWARE & DRIVERS ---
+A. กล้อง WebCam (Face Recognition):
+   - ระบบนี้ทำงานผ่าน Web Browser ดังนั้นต้องกด "อนุญาต (Allow)" การเข้าถึงกล้องบนเบราว์เซอร์ด้วย
+B. บอร์ด SC-840 (Serial Port):
+   - *หมายเหตุ:* เนื่องจาก Backend รันอยู่ใน Docker การเชื่อมต่อ Hardware ผ่านพอร์ต COM (Windows) หรือ /dev/tty.* (Mac/Linux) อาจจะต้องมีการทำ Device Mapping ในไฟล์ docker-compose.yml เพิ่มเติม
+
+--- 5. คำสั่งจัดการระบบเบื้องต้น (DOCKER COMMANDS) ---
+- ดูว่ามีอะไรทำงานอยู่บ้าง: docker ps
+- ดู Log หากระบบมีปัญหา: 
+   > docker logs frontend_app (ดูฝั่งหน้าบ้าน)
+   > docker logs backend_api (ดูฝั่งหลังบ้าน)
+- ปิดระบบทั้งหมด: docker-compose down

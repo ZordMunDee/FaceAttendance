@@ -5,6 +5,7 @@ from datetime import datetime
 class UserCreate(BaseModel):
     employee_id: str
     fullname: str
+    position: Optional[str] = None
     image_base64: str
     is_admin: bool = False
 
@@ -18,6 +19,7 @@ class ScanRequest(BaseModel):
 class UserResponse(BaseModel):
     employee_id: str
     fullname: str
+    position: Optional[str] = None
     is_admin: bool
     status: str      
     timestamp: datetime 
@@ -32,6 +34,7 @@ class LogResponse(BaseModel):
 # 🚀 สำหรับอัปเดตข้อมูลพนักงาน
 class UserUpdate(BaseModel):
     fullname: str
+    position: Optional[str] = None
     is_admin: bool
 
 # 🚀 สำหรับรับข้อมูลตอน Login ของ Admin

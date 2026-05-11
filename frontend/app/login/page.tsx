@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const router = useRouter();
 
@@ -24,8 +25,16 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = await response.json();
-
         localStorage.setItem("token", data.access_token);
+
+        // ✅ ส่วนที่เพิ่ม: ถ้าติ๊ก Remember me ให้จำชื่อไว้
+        if (rememberMe) {
+          localStorage.setItem("rememberedUsername", username);
+          localStorage.setItem("rememberedPassword", password);
+        } else {
+          localStorage.removeItem("rememberedUsername");
+          localStorage.removeItem("rememberedPassword"); // ถ้าไม่ได้ติ๊ก ให้ลบของเก่าทิ้ง
+        }
 
         toast.success("Login success");
         router.push("/admin/management");
@@ -36,6 +45,17 @@ export default function LoginPage() {
       toast.error("ไม่สามารถเชื่อมต่อ Server ได้");
     }
   };
+
+  useEffect(() => {
+    // ลองหาดูว่ามี username ที่เคยจำไว้ไหม
+    const savedUsername = localStorage.getItem("rememberedUsername");
+    const savedPass = localStorage.getItem("rememberedPassword");
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setPassword(savedPass ||"" ); // ถ้ามีรหัสผ่านที่จำไว้ก็ใส่ให้ด้วย);
+      setRememberMe(true); // ติ๊กถูกให้ด้วยเลย
+    }
+  }, []);
 
   return (
     <main
@@ -75,7 +95,7 @@ export default function LoginPage() {
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
-              value={password}
+              value={password || ""}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-6 py-4 pr-12 rounded-xl bg-white/80 shadow-md backdrop-blur-md border border-white/40 focus:outline-none focus:ring-2 focus:ring-blue-300 text-black"
             />
@@ -91,7 +111,12 @@ export default function LoginPage() {
 
           {/* remember */}
           <div className="flex items-center gap-2 text-sm text-slate-700 justify-start px-2">
-            <input type="checkbox" className="accent-blue-500" />
+            <input
+              type="checkbox"
+              className="accent-blue-500 cursor-pointer"
+              checked={rememberMe} // ผูกสถานะ
+              onChange={(e) => setRememberMe(e.target.checked)} // เปลี่ยนค่าตามการคลิก
+            />
             <span className="text-white">Remember me</span>
           </div>
 
