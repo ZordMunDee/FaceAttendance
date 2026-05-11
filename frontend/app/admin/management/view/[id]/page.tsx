@@ -47,7 +47,7 @@ export default function ViewPage() {
           position: res.data.position || "",
           employee_id: res.data.employee_id,
           // 🚀 ดึงรูปจากโฟลเดอร์ uploads โดยใช้ ID พนักงานได้เลย!
-          image_url: `http://127.0.0.1:8000/uploads/${res.data.employee_id}.jpg`,
+          image_url: `${API_URL}/uploads/${res.data.employee_id}.jpg`,
         });
       } catch (error) {
         toast.error("ไม่สามารถดึงข้อมูลได้");
