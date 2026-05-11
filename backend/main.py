@@ -44,8 +44,10 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    # เปลี่ยน/เพิ่ม ลิงก์หน้าเว็บ Railway ของไนซ์ลงไปที่นี่ (เอา / ตัวสุดท้ายออกด้วยนะ)
-    allow_origins=["faceattendance-production-9905.up.railway.app", "http://localhost:3000"], 
+    allow_origins=[
+        "http://localhost:3000",
+        "https://faceattendance-production-9905.up.railway.app" # 👈 เพิ่มบรรทัดนี้! (ระวัง: ห้ามมี / ปิดท้ายลิงก์เด็ดขาด)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
