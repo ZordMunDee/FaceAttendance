@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     try {
-      const response = await fetch("http://localhost:8000/login/", {
+      const response = await fetch(`${API_URL}/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -52,7 +52,7 @@ export default function LoginPage() {
     const savedPass = localStorage.getItem("rememberedPassword");
     if (savedUsername) {
       setUsername(savedUsername);
-      setPassword(savedPass ||"" ); // ถ้ามีรหัสผ่านที่จำไว้ก็ใส่ให้ด้วย);
+      setPassword(savedPass || ""); // ถ้ามีรหัสผ่านที่จำไว้ก็ใส่ให้ด้วย);
       setRememberMe(true); // ติ๊กถูกให้ด้วยเลย
     }
   }, []);
