@@ -27,7 +27,7 @@ import React from "react";
 
 
 // 🚀 เปลี่ยน URL ตรงนี้ตามที่รัน Backend ไว้นะครับ
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
