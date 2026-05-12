@@ -77,7 +77,11 @@ export default function EditPage() {
       const token = localStorage.getItem("token");
       await axios.put(
         `${API_URL}/users/${id}`,
-        { fullname: regData.fullname, position: regData.position, is_admin: regData.is_admin },
+        {
+          fullname: regData.fullname,
+          position: regData.position,
+          is_admin: regData.is_admin,
+        },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       toast.success("อัปเดตข้อมูลสำเร็จ");
@@ -263,8 +267,9 @@ export default function EditPage() {
                       {/* เช็คว่าเปิดกล้องหรือยัง ถ้ายังให้โชว์รูปเดิม */}
                       {!showCamera ? (
                         <div className="w-full h-full bg-gray-100 flex items-center justify-center relative group">
+                          {/* เปลี่ยนจาก <Image เป็น <img แบบนี้ครับ */}
                           <img
-                            src={`${API_URL}/uploads/${regData.employee_id}.jpg`}
+                            src={`${API_URL}/uploads/${regData.employee_id}.jpg?t=${Date.now()}`}
                             alt="Profile"
                             className="w-full h-full object-cover"
                             onError={(e) => {

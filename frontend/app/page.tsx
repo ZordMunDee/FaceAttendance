@@ -216,14 +216,13 @@ export default function HomePage() {
                 {/* 🚀 AVATAR (ดึงรูปจริงจาก Database/Uploads) */}
                 <div className="relative z-10 mb-[-15px]">
                   <Image
-                    src={`${API_URL}/uploads/${employeeId}.jpg`} // ดึงรูปจริงจากรหัสพนักงาน
+                    src={`${API_URL}/uploads/${employeeId}.jpg?t=${Date.now()}`} // 👈 เติม ?t=${Date.now()} ตรงนี้
                     alt={personName}
                     width={100}
                     height={100}
                     unoptimized
                     onError={(e) => {
-                      // ถ้าไม่เจอรูปจริง ให้เอาการ์ตูนมาแปะแทน
-                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${personName}`;
+                      e.currentTarget.srcset = `https://api.dicebear.com/7.x/avataaars/svg?seed=${personName}`;
                     }}
                     className={`rounded-full bg-blue-100 object-cover ${item.avatarClass}`}
                   />

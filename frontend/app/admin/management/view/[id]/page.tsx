@@ -92,6 +92,7 @@ export default function ViewPage() {
         <header className="h-16 bg-white flex items-center justify-end px-8 shadow-sm shrink-0">
           {/* Header เหมือนเดิม */}
           <div className="flex items-center gap-3">
+            {/* เปลี่ยนตรงนี้กลับเป็นรูปแอดมิน */}
             <img
               src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owen"
               alt="Profile"
@@ -155,13 +156,19 @@ export default function ViewPage() {
                 </div>
 
                 {/* 📸 Right Section: แสดงรูปภาพ */}
+                {/* 📸 Right Section: แสดงรูปภาพ */}
                 <div className="flex flex-col">
                   <div className="relative aspect-[4/3] w-full max-w-lg mx-auto rounded-2xl overflow-hidden bg-slate-100 border-4 border-[#d9d9d9] flex items-center justify-center">
                     {userData.image_url ? (
+                      // 🚀 เติม ?t=${Date.now()} ตรงนี้ครับ!
                       <img
-                        src={userData.image_url}
+                        src={`${userData.image_url}?t=${Date.now()}`}
                         alt="Face"
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src =
+                            "https://placehold.co/600x400/eeeeee/999999?text=No+Image";
+                        }}
                       />
                     ) : (
                       <div className="flex flex-col items-center text-gray-400">

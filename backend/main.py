@@ -356,10 +356,33 @@ async def delete_user(emp_id: str, db: Session = Depends(get_db)):
 @app.put("/users/{emp_id}")
 async def update_user(emp_id: str, data: schemas.UserUpdate, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.employee_id == emp_id).first()
-    if not user: raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
+    if not user: 
+        raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
+    
+    # 1. อัปเดตข้อมูลทั่วไป
     user.fullname = data.fullname
     user.position = data.position
     user.is_admin = data.is_admin
+
+    # 🚀 2. ถ้าหน้าบ้านส่งรูปใหม่มาด้วย ให้ทำการอัปเดตรูป
+    if data.image_base64:
+        # 2.1 ถอดรหัสใบหน้าใหม่
+        enc = decode_face(data.image_base64)
+        if enc is None:
+            raise HTTPException(400, "ไม่พบใบหน้าในรูปใหม่")
+
+        # 2.2 เอาไฟล์รูปใหม่ ไปเขียนทับไฟล์รูปเก่าในโฟลเดอร์ uploads
+        try:
+            image_data = data.image_base64.split(",")[1] if "," in data.image_base64 else data.image_base64
+            file_path = f"uploads/{user.employee_id}.jpg"
+            with open(file_path, "wb") as f:
+                f.write(base64.b64decode(image_data))
+        except Exception as e:
+            print("Update image error:", e)
+
+        # 2.3 อัปเดตโครงสร้างใบหน้าใหม่ลง Database
+        user.face_encoding = json.dumps(enc.tolist())
+
     db.commit()
     return {"message": "แก้ไขสำเร็จ"}
 

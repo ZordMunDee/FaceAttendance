@@ -33,9 +33,10 @@ class LogResponse(BaseModel):
 
 # 🚀 สำหรับอัปเดตข้อมูลพนักงาน
 class UserUpdate(BaseModel):
-    fullname: str
+    fullname: Optional[str] = None
     position: Optional[str] = None
-    is_admin: bool
+    is_admin: Optional[bool] = None
+    image_base64: Optional[str] = None
 
 # 🚀 สำหรับรับข้อมูลตอน Login ของ Admin
 class LoginRequest(BaseModel):
