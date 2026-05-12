@@ -38,6 +38,7 @@ export default function EditPage() {
     fullname: "",
     position: "",
     employee_id: "",
+    is_admin: false,
   });
 
   const webcamRef = useRef<Webcam | null>(null);
@@ -58,6 +59,7 @@ export default function EditPage() {
           fullname: res.data.fullname,
           position: res.data.position || "",
           employee_id: res.data.employee_id,
+          is_admin: res.data.is_admin || false,
         });
       } catch (error) {
         toast.error("ไม่สามารถดึงข้อมูลได้");
@@ -75,7 +77,7 @@ export default function EditPage() {
       const token = localStorage.getItem("token");
       await axios.put(
         `${API_URL}/users/${id}`,
-        { fullname: regData.fullname, position: regData.position },
+        { fullname: regData.fullname, position: regData.position, is_admin: regData.is_admin },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       toast.success("อัปเดตข้อมูลสำเร็จ");
@@ -122,6 +124,7 @@ export default function EditPage() {
           fullname: regData.fullname,
           position: regData.position,
           image_base64: img1,
+          is_admin: regData.is_admin,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );

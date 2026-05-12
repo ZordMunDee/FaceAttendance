@@ -400,7 +400,7 @@ export default function RegisterPage() {
                 asChild
                 className="px-8 h-12 bg-[#c8c8c8] text-gray-800 hover:bg-gray-300 rounded-lg font-medium"
               >
-                <Link href="/admin/management">ย้อนหลับ</Link>
+                <Link href="/admin/management">ย้อนกลับ</Link>
               </Button>
             </div>
           </div>

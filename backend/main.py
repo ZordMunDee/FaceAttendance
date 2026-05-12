@@ -127,49 +127,49 @@ def root():
     return {"message": "Backend running"}
 
 
-# =========================
-# USERS
-# =========================
-# 📂 main.py (แก้ตรงส่วน @app.post("/users/"))
-
-import base64 # อย่าลืมเช็คว่ามี import base64 ด้านบนสุดหรือยัง
 
 @app.post("/users/")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
-    # 1. แปลงรูปใบหน้า
+    # 1. ลองค้นหาดูว่ามีรหัสพนักงานนี้ในระบบหรือยัง 👈 (ย้ายขึ้นมาเช็คก่อนเลย!)
+    existing_user = db.query(models.User).filter_by(employee_id=user.employee_id).first()
+
+    if existing_user:
+        if existing_user.is_deleted:
+            # ถ้ารหัสซ้ำ แต่เคยถูกลบไปแล้ว (Soft Delete) ให้ชุบชีวิตกลับมาได้
+            pass # (เดี๋ยวเราไปจัดการข้างล่าง)
+        else:
+            # 🛑 ถ้ารหัสซ้ำ และยังทำงานอยู่ ให้เตะกลับทันที! (รูปจะไม่ถูกเซฟ)
+            raise HTTPException(400, "exists")
+
+    # 2. แปลงรูปใบหน้า
     enc = decode_face(user.image_base64)
     if enc is None:
         raise HTTPException(400, "no face")
 
-    # 🚀 2. โค้ดสำหรับเซฟไฟล์รูปภาพจริงๆ ลงโฟลเดอร์ uploads
+    # 🚀 3. เซฟไฟล์รูปภาพจริงๆ ลงโฟลเดอร์ (ทำหลังจากมั่นใจว่ารหัสไม่ซ้ำแน่ๆ)
     try:
-        # ตัดส่วนหัว data:image/jpeg;base64, ออกให้เหลือแต่ข้อมูลเพียวๆ
         image_data = user.image_base64.split(",")[1] if "," in user.image_base64 else user.image_base64
-        # ตั้งชื่อไฟล์ตามรหัสพนักงานเลย เช่น 66200105.jpg
         file_path = f"uploads/{user.employee_id}.jpg"
         with open(file_path, "wb") as f:
             f.write(base64.b64decode(image_data))
     except Exception as e:
         print("Save image error:", e)
 
-    # 3. ลองค้นหาดูว่ามีรหัสพนักงานนี้ในระบบหรือยัง (โค้ดดึงข้อมูลกลับมาที่ทำไว้เมื่อกี้)
-    existing_user = db.query(models.User).filter_by(employee_id=user.employee_id).first()
+    # 4. บันทึกลง Database
+    if existing_user and existing_user.is_deleted:
+        # กรณีชุบชีวิตพนักงานเก่า
+        existing_user.fullname = user.fullname
+        existing_user.position = user.position
+        existing_user.is_admin = user.is_admin
+        existing_user.face_encoding = json.dumps(enc.tolist())
+        existing_user.is_deleted = False
+        existing_user.status = "In"
+        existing_user.timestamp = datetime.now()
+        db.commit()
+        return {"message": "reactivated"}
 
-    if existing_user:
-        if existing_user.is_deleted:
-            existing_user.fullname = user.fullname
-            existing_user.position = user.position
-            existing_user.is_admin = user.is_admin
-            existing_user.face_encoding = json.dumps(enc.tolist())
-            existing_user.is_deleted = False
-            existing_user.status = "In"
-            existing_user.timestamp = datetime.now()
-            db.commit()
-            return {"message": "reactivated"}
-        else:
-            raise HTTPException(400, "exists")
-
+    # กรณีพนักงานใหม่เอี่ยม
     db.add(models.User(
         employee_id=user.employee_id,
         fullname=user.fullname,
