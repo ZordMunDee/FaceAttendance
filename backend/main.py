@@ -217,19 +217,16 @@ def login(data: schemas.LoginRequest):
     raise HTTPException(401, "invalid")
 
 
-# =========================
-# SCAN (เวอร์ชันแก้บัคชื่อตัวแปร)
-# =========================
 @app.post("/scan/")
 def scan(data: schemas.ScanRequest, db: Session = Depends(get_db)):
 
-    
     incoming_encoding = decode_face(data.image_base64)
 
     if incoming_encoding is None:  
         raise HTTPException(status_code=400, detail="กล้องจับใบหน้าไม่ชัด")
 
-    all_users = db.query(models.User).all()
+    # 🚀 ดึงเฉพาะพนักงานที่ยังไม่ถูกลบ
+    all_users = db.query(models.User).filter(models.User.is_deleted == False).all()
     if not all_users:
         raise HTTPException(404, "ระบบยังไม่มีข้อมูลพนักงาน")
 
@@ -244,7 +241,6 @@ def scan(data: schemas.ScanRequest, db: Session = Depends(get_db)):
     if not encs:
         raise HTTPException(404, "ไม่พบข้อมูลใบหน้าในฐานข้อมูล")
 
-    
     dist = face_recognition.face_distance(encs, incoming_encoding)
     best = np.argmin(dist)
 
@@ -252,33 +248,77 @@ def scan(data: schemas.ScanRequest, db: Session = Depends(get_db)):
         raise HTTPException(404, "ใบหน้าไม่ตรงกับพนักงานคนใด")
 
     user = refs[best]
-
-    # กำหนดสถานะ
+    
+    # วันที่และเวลาปัจจุบัน
+    now = datetime.now()
+    today = now.date()
     status = data.scan_type
-    if status == "In" and datetime.now().time() > dt_time(8, 30):
-        status = "Late"
 
-    # อัปเดตข้อมูลพนักงาน
+    # ==========================================
+    # 🎯 เงื่อนไข 1: สแกนเข้างาน (In)
+    # ==========================================
+    if status == "In":
+        # เช็คว่าวันนี้สแกน In หรือ Late ไปแล้วหรือยัง
+        existing_in = db.query(models.ScanLog).filter(
+            models.ScanLog.employee_id == user.employee_id,
+            func.date(models.ScanLog.timestamp) == today,
+            models.ScanLog.status.in_(["In", "Late"])
+        ).first()
+
+        if existing_in:
+            # ถ้ามีแล้ว ให้ดึงเวลาที่สแกนมาแจ้งเตือน และหยุดทำงาน (Error 400)
+            time_str = existing_in.timestamp.strftime("%H:%M น.")
+            raise HTTPException(status_code=400, detail=f"คุณได้สแกนเข้างานไปแล้ววันนี้ เมื่อเวลา {time_str}")
+
+        # ถ้ายังไม่เคยสแกน ให้เช็คสาย
+        if now.time() > dt_time(8, 30):
+            status = "Late"
+
+        # บันทึกเป็น Post (สร้างใหม่)
+        db.add(models.ScanLog(
+            employee_id=user.employee_id,
+            fullname=user.fullname,
+            status=status,
+            timestamp=now
+        ))
+
+    # ==========================================
+    # 🎯 เงื่อนไข 2: สแกนออกงาน (Out)
+    # ==========================================
+    elif status == "Out":
+        # เช็คว่าวันนี้เคยสแกน Out ไปแล้วหรือยัง
+        existing_out = db.query(models.ScanLog).filter(
+            models.ScanLog.employee_id == user.employee_id,
+            func.date(models.ScanLog.timestamp) == today,
+            models.ScanLog.status == "Out"
+        ).first()
+
+        if existing_out:
+            # ถ้ามีแล้ว ให้เป็น Put (อัปเดตเวลาล่าสุด)
+            existing_out.timestamp = now
+        else:
+            # ถ้าเพิ่งออกครั้งแรก ให้เป็น Post (สร้างใหม่)
+            db.add(models.ScanLog(
+                employee_id=user.employee_id,
+                fullname=user.fullname,
+                status=status,
+                timestamp=now
+            ))
+
+    # อัปเดตข้อมูลสถานะพนักงานล่าสุด
     user.status = status
-    user.timestamp = datetime.now()
-
-    # บันทึก Log
-    db.add(models.ScanLog(
-        employee_id=user.employee_id,
-        fullname=user.fullname,
-        status=status,
-        timestamp=datetime.now()
-    ))
+    user.timestamp = now
 
     db.commit()
 
-    # สั่งเปิด Relay (ไนซ์อย่าลืมเช็ค Port COM3 นะครับ)
+    # สั่งเปิด Relay กั้นประตู
     threading.Thread(target=trigger_sc840_relay, args=(1,)).start()
 
     return {
         "employee_id": user.employee_id,
         "fullname": user.fullname,
-        "status": status
+        "status": status,
+        "message": "สแกนสำเร็จ"
     }
 
 

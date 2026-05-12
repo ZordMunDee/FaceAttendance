@@ -34,7 +34,6 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
     setLoading(true);
 
     try {
-      // 🚀 ส่งทั้ง Base64 และ type ('In' หรือ 'Out') ไปที่ Backend
       const res = await fetch(`${API_URL}/scan/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,14 +43,19 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
         })
       });
 
-      if (!res.ok) throw new Error("ไม่พบใบหน้า");
+      // 🚀 1. ดักจับ Error จาก Backend ตรงนี้!
+      if (!res.ok) {
+        // แปลงข้อความที่ Backend ส่งมาให้อ่านได้
+        const errorData = await res.json(); 
+        // โยนข้อความ (detail) ไปให้ block catch ทำงาน
+        throw new Error(errorData.detail || "ไม่พบใบหน้า"); 
+      }
+
       const data = await res.json();
 
-      // 🚀 จัดการสถานะที่ Backend ส่งกลับมา (In, Out, Late)
       const status = (data.status || "").toString().toLowerCase();
       const fullname = data.fullname || "พนักงาน";
 
-      // 💡 คำนวณข้อความ Popup ตามสถานะ
       let title = `คุณ${fullname}`;
       let subtitle = "ทำรายการสำเร็จ";
 
@@ -65,7 +69,6 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
         subtitle = "ออกงานสำเร็จ";
       }
 
-      // สั่งเปิดไฟ
       fetch(`${API_URL}/trigger-light/`, { method: "POST" }).catch(console.warn);
 
       setPopup({ show: true, type: 'success', title, subtitle });
@@ -75,11 +78,20 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
       }, 2500);
 
     } catch (err: any) {
-      setPopup({ show: true, type: 'error', title: 'ไม่พบใบหน้า', subtitle: 'โปรดลองใหม่อีกครั้ง' });
+      // 🚀 2. เอาข้อความที่โยนมา มาแยกประเภทแสดงผล Popup
+      const isDuplicate = err.message.includes("แล้ววันนี้"); // เช็คว่ามีคำว่าแล้ววันนี้ไหม
+
+      setPopup({ 
+        show: true, 
+        type: 'error', 
+        title: isDuplicate ? 'แจ้งเตือนการสแกนซ้ำ' : 'ไม่พบใบหน้า', // เปลี่ยนหัวข้อถ้ารู้ว่าเป็นการสแกนซ้ำ
+        subtitle: err.message // แสดงข้อความเวลาที่ Backend ส่งมา
+      });
+
       setTimeout(() => {
         setPopup(prev => ({ ...prev, show: false }));
         setLoading(false);
-      }, 2500);
+      }, 3500); // 💡 เพิ่มเวลาโชว์ Popup เป็น 3.5 วินาที ให้พนักงานอ่านเวลาทัน
     }
   };
 
