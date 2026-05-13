@@ -112,7 +112,8 @@ export default function HomePage() {
 
   return (
     <main
-      className="flex min-h-screen font-sans bg-no-repeat bg-center bg-fixed"
+      // 🎨 Responsive: เปลี่ยนจาก flex แถวเดียว เป็น flex-col บนมือถือ และ lg:flex-row บนจอคอม
+      className="flex flex-col lg:flex-row min-h-screen font-sans bg-no-repeat bg-center bg-fixed overflow-x-hidden"
       style={{
         backgroundImage: "url('/background.png')",
         backgroundSize: "cover",
@@ -121,62 +122,68 @@ export default function HomePage() {
       }}
     >
       {/* ================= LEFT ================= */}
-      <div className="flex-1 relative flex flex-col items-center justify-center bg-black/10 backdrop-blur-[2px]">
+      {/* 🎨 Responsive: ให้สูงเต็มจอบนมือถือ (min-h-screen) จะได้เห็นนาฬิกาเต็มๆ */}
+      <div className="flex-1 w-full min-h-screen lg:min-h-0 relative flex flex-col items-center justify-center bg-black/10 backdrop-blur-[2px] p-4">
         {/* LOGO */}
-        <div className="absolute top-12 left-14">
+        <div className="absolute top-6 left-6 sm:top-12 sm:left-14 w-[120px] sm:w-[200px]">
           <Image
             src="/logo.png"
             alt="Logo"
-            width={200} // ใส่ตัวเลขขนาดที่ต้องการ
-            height={200} // ใส่ค่าเริ่มต้นไว้ก่อน
-            style={{ width: "100%", height: "auto" }} // ✅ เพิ่มบรรทัดนี้เพื่อรักษา Aspect Ratio
+            width={200}
+            height={200}
+            style={{ width: "100%", height: "auto" }}
           />
         </div>
 
         {/* TIME */}
-        <div className="text-center mb-12 text-white drop-shadow-lg">
-          <h1 className="text-[140px] font-bold leading-none tracking-tight">
+        <div className="text-center mb-8 sm:mb-12 text-white drop-shadow-lg mt-16 sm:mt-0">
+          <h1 className="text-[80px] sm:text-[100px] lg:text-[140px] font-bold leading-none tracking-tight">
             {time ? formatTime(time) : "00:00"}
           </h1>
-          <p className="text-3xl font-bold mt-4">
+          <p className="text-xl sm:text-2xl lg:text-3xl font-bold mt-2 sm:mt-4">
             {time ? formatDate(time) : "กำลังโหลด..."}
           </p>
         </div>
 
         {/* BUTTONS */}
-        <div className="flex flex-col gap-6 w-[400px]">
+        <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-[320px] sm:max-w-[400px]">
           <button
             onClick={() => router.push("/scan?type=In")}
-            className="bg-white hover:bg-gray-100 text-[#1a365d] text-2xl font-extrabold py-6 rounded-3xl shadow-xl transition-transform hover:scale-105"
+            className="bg-white hover:bg-gray-100 text-[#1a365d] text-xl sm:text-2xl font-extrabold py-4 sm:py-6 rounded-2xl sm:rounded-3xl shadow-xl transition-transform hover:scale-105"
           >
             เข้างาน
           </button>
           <button
             onClick={() => router.push("/scan?type=Out")}
-            className="bg-white hover:bg-gray-100 text-[#1a365d] text-2xl font-extrabold py-6 rounded-3xl shadow-xl transition-transform hover:scale-105"
+            className="bg-white hover:bg-gray-100 text-[#1a365d] text-xl sm:text-2xl font-extrabold py-4 sm:py-6 rounded-2xl sm:rounded-3xl shadow-xl transition-transform hover:scale-105"
           >
             ออกงาน
           </button>
         </div>
 
         {/* LOGIN */}
-        <div className="absolute bottom-8 left-10">
+        <div className="absolute bottom-6 left-6 sm:bottom-8 sm:left-10">
           <Link
             href="/login"
             className="flex items-center gap-2 text-white font-medium hover:opacity-80 transition-opacity"
           >
-            <LogIn size={24} />
-            <span className="text-lg drop-shadow-md">เข้าสู่ระบบ</span>
+            <LogIn size={20} className="sm:w-6 sm:h-6" />
+            <span className="text-base sm:text-lg drop-shadow-md">
+              เข้าสู่ระบบ
+            </span>
           </Link>
         </div>
       </div>
 
       {/* ================= RIGHT ================= */}
-      <div className="w-[500px] bg-[#d5e2f1] flex flex-col p-10 shadow-2xl rounded-l-3xl z-10">
+      {/* 🎨 Responsive: ความกว้างเต็มจอบนมือถือ และโค้งมนเฉพาะด้านบน */}
+      <div className="w-full lg:w-[450px] xl:w-[500px] bg-[#d5e2f1] flex flex-col p-6 sm:p-10 shadow-2xl rounded-t-[3rem] lg:rounded-t-none lg:rounded-l-3xl z-10 min-h-screen lg:min-h-0">
         {/* HEADER */}
-        <div className="text-center mb-16 text-[#1a365d]">
-          <h2 className="text-4xl font-extrabold mb-2">The Latecomers Club</h2>
-          <p className="text-base font-bold opacity-80">
+        <div className="text-center mb-10 sm:mb-16 text-[#1a365d] mt-4 sm:mt-0">
+          <h2 className="text-3xl sm:text-4xl font-extrabold mb-2">
+            The Latecomers Club
+          </h2>
+          <p className="text-sm sm:text-base font-bold opacity-80">
             ประจำเดือน{" "}
             {new Date().toLocaleDateString("th-TH", {
               month: "long",
@@ -186,12 +193,13 @@ export default function HomePage() {
         </div>
 
         {/* ================= PODIUM ================= */}
-        <div className="flex justify-center items-end gap-4 h-72 mb-10">
+        {/* 🎨 Responsive: ใช้เทคนิค scale-90 บนจอมือถือเพื่อให้โพเดียมไม่ล้นจอ */}
+        <div className="flex justify-center items-end gap-2 sm:gap-4 h-64 sm:h-72 mb-8 sm:mb-10 transform scale-95 sm:scale-100 origin-bottom">
           {podiumData.map((item, index) => {
-            if (!item.person) return <div key={index} className="w-[120px]" />;
+            if (!item.person)
+              return <div key={index} className={item.wrapperClass} />;
 
             const isFirst = item.rank === 1;
-            // รองรับทั้งกรณี Backend ส่งมาเป็น name หรือ fullname
             const personName = item.person.fullname || item.person.name;
             const employeeId = item.person.employee_id;
 
@@ -202,7 +210,7 @@ export default function HomePage() {
               >
                 {/* 🚀 ป้าย Flex อันดับ (Rank Badge) */}
                 <div
-                  className={`absolute -top-4 -right-2 w-10 h-10 rounded-full flex items-center justify-center font-black text-xl shadow-lg z-30 border-2 border-white
+                  className={`absolute -top-3 sm:-top-4 -right-1 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-black text-lg sm:text-xl shadow-lg z-30 border-2 border-white
                   ${item.rank === 1 ? "bg-yellow-400 text-yellow-900" : item.rank === 2 ? "bg-slate-300 text-slate-800" : "bg-amber-700 text-white"}`}
                 >
                   #{item.rank}
@@ -210,13 +218,13 @@ export default function HomePage() {
 
                 {/* มงกุฎที่ 1 */}
                 {isFirst && (
-                  <Crown className="text-yellow-500 fill-yellow-400 w-14 h-14 absolute -top-14 z-20 drop-shadow-lg animate-bounce" />
+                  <Crown className="text-yellow-500 fill-yellow-400 w-10 h-10 sm:w-14 sm:h-14 absolute -top-10 sm:-top-14 z-20 drop-shadow-lg animate-bounce" />
                 )}
 
-                {/* 🚀 AVATAR (ดึงรูปจริงจาก Database/Uploads) */}
-                <div className="relative z-10 mb-[-15px]">
+                {/* 🚀 AVATAR */}
+                <div className="relative z-10 mb-[-10px] sm:mb-[-15px]">
                   <Image
-                    src={`${API_URL}/uploads/${employeeId}.jpg?t=${Date.now()}`} // 👈 เติม ?t=${Date.now()} ตรงนี้
+                    src={`${API_URL}/uploads/${employeeId}.jpg?t=${Date.now()}`}
                     alt={personName}
                     width={100}
                     height={100}
@@ -228,26 +236,26 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* RIBBON (โชว์จำนวนครั้งที่สาย) */}
+                {/* RIBBON */}
                 <div
-                  className={`w-16 flex flex-col items-center justify-start pt-2 font-black text-3xl shadow-lg relative z-0 ${item.bgColor} ${item.textColor} ${item.ribbonHeight}`}
+                  className={`w-14 sm:w-16 flex flex-col items-center justify-start pt-2 font-black text-2xl sm:text-3xl shadow-lg relative z-0 ${item.bgColor} ${item.textColor} ${item.ribbonHeight}`}
                   style={{
                     clipPath:
                       "polygon(0 0, 100% 0, 100% 100%, 50% 85%, 0 100%)",
                   }}
                 >
                   {item.person.count}
-                  <span className="text-[10px] uppercase mt-[-4px] opacity-80">
+                  <span className="text-[8px] sm:text-[10px] uppercase mt-[-2px] sm:mt-[-4px] opacity-80">
                     ครั้ง
                   </span>
                 </div>
 
                 {/* NAMES & TITLES */}
-                <div className="text-center mt-3 h-20">
-                  <p className="font-extrabold text-[#1a365d] text-[11px] uppercase tracking-wide opacity-80 leading-tight mb-1">
+                <div className="text-center mt-2 sm:mt-3 h-16 sm:h-20 px-1">
+                  <p className="font-extrabold text-[#1a365d] text-[9px] sm:text-[11px] uppercase tracking-wide opacity-80 leading-tight mb-1">
                     {item.title}
                   </p>
-                  <p className="font-bold text-[#1a365d] text-sm leading-tight">
+                  <p className="font-bold text-[#1a365d] text-xs sm:text-sm leading-tight line-clamp-2">
                     {personName}
                   </p>
                 </div>
@@ -257,7 +265,7 @@ export default function HomePage() {
         </div>
 
         {/* ================= LIST (อันดับ 4 เป็นต้นไป) ================= */}
-        <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1 lg:flex-none">
           {others.map((person, idx) => {
             const personName = person.fullname || person.name;
             const employeeId = person.employee_id;
@@ -266,34 +274,34 @@ export default function HomePage() {
                 key={personName}
                 className="flex justify-between items-center bg-[#bdcce0] p-3 rounded-2xl shadow-sm hover:bg-[#a6b9d1] transition-colors"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                   {/* Badge บอกอันดับในลิสต์ */}
-                  <span className="font-black text-[#1a365d] opacity-50 w-4">
+                  <span className="font-black text-[#1a365d] opacity-50 w-4 text-sm sm:text-base text-center">
                     {idx + 4}
                   </span>
 
-                  {/* รูปคนในลิสต์ (รูปจริง) */}
+                  {/* รูปคนในลิสต์ (แก้แคชแล้ว) */}
                   <Image
-                    src={`${API_URL}/uploads/${employeeId}.jpg`}
+                    src={`${API_URL}/uploads/${employeeId}.jpg?t=${Date.now()}`}
                     alt={personName}
                     width={40}
                     height={40}
                     unoptimized
                     onError={(e) => {
-                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${personName}`;
+                      e.currentTarget.srcset = `https://api.dicebear.com/7.x/avataaars/svg?seed=${personName}`;
                     }}
-                    className="rounded-full bg-white border-2 border-white object-cover h-10 w-10"
+                    className="rounded-full bg-white border-2 border-white object-cover h-8 w-8 sm:h-10 sm:w-10"
                   />
-                  <span className="font-bold text-[#1a365d] text-lg">
+                  <span className="font-bold text-[#1a365d] text-sm sm:text-lg line-clamp-1">
                     {personName}
                   </span>
                 </div>
 
-                <div className="flex items-end gap-1 mr-2">
-                  <span className="font-black text-2xl text-[#1a365d]">
+                <div className="flex items-end gap-1 mr-2 shrink-0">
+                  <span className="font-black text-xl sm:text-2xl text-[#1a365d]">
                     {person.count}
                   </span>
-                  <span className="text-xs font-bold text-[#1a365d] mb-1 opacity-70">
+                  <span className="text-[10px] sm:text-xs font-bold text-[#1a365d] mb-0.5 sm:mb-1 opacity-70">
                     ครั้ง
                   </span>
                 </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import Webcam from "react-webcam";
 import Link from "next/link";
 import {
@@ -13,6 +13,9 @@ import {
   ArrowLeft,
   Save,
   Camera,
+  UserPlus,
+  LogOut,
+  X, 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,16 +23,21 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import axios from "axios";
+import { cn } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function EditPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const id = params.id as string;
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+
+  // 🚀 State สำหรับคุม Sidebar บนมือถือ
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // State สำหรับคุมการเปิด/ปิดกล้อง
   const [showCamera, setShowCamera] = useState(false);
@@ -41,11 +49,18 @@ export default function EditPage() {
     is_admin: false,
   });
 
+  const [adminProfile] = useState({
+    name: "Owen Radcliffe",
+    role: "ADMIN",
+  });
+
   const webcamRef = useRef<Webcam | null>(null);
   const [step, setStep] = useState<
     "idle" | "look_straight" | "blink" | "turn_right" | "done"
   >("idle");
   const [progress, setProgress] = useState(0);
+
+  const isActive = (path: string) => pathname.includes(path);
 
   // 1. โหลดข้อมูลเดิมมาใส่ Form
   useEffect(() => {
@@ -143,88 +158,158 @@ export default function EditPage() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("isAdminLoggedIn");
+    localStorage.removeItem("adminName");
+    toast.success("ออกจากระบบสำเร็จ");
+    router.replace("/");
+  };
+
   return (
-    <div className="flex h-screen bg-[#eaf0f6] font-sans selection:bg-[#4a6396]/30">
-      {/* 🟦 Sidebar สมบูรณ์ */}
-      <aside className="w-64 bg-[#4a6396] text-white flex flex-col shrink-0">
-        <div className="p-6 flex items-center gap-4 text-xl font-bold tracking-wide">
-          <Menu className="w-6 h-6" />
-          MANAGEMENT
+    <div className="flex flex-col lg:flex-row min-h-screen bg-[#eaf0f6] text-slate-900 font-sans selection:bg-[#4a6396]/30 overflow-hidden relative">
+      {/* 🌑 Overlay สีดำโปร่งแสงตอนเปิด Sidebar มือถือ */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* ================= SIDEBAR ================= */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-64 bg-[#4a6396] text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:h-screen lg:shadow-lg",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="p-6 flex items-center justify-between lg:justify-start gap-4 text-xl font-bold tracking-wide border-b border-white/10 lg:border-none">
+          <div className="flex items-center gap-3">
+            <Menu className="w-6 h-6 hidden lg:block" />
+            MANAGEMENT
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden text-white hover:bg-white/20 rounded-full"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
-        <nav className="flex-1 mt-4">
-          <ul className="space-y-1">
+        <nav className="flex-1 mt-4 overflow-y-auto">
+          <ul className="flex flex-col space-y-1 px-4">
             <li>
-              <Link
-                href="/admin/management/dashboard"
-                className="flex items-center gap-3 px-6 py-3 text-white hover:bg-white/10 transition-colors"
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  router.push("/admin/management/dashboard");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${
+                  isActive("/admin/management/dashboard")
+                    ? "bg-white text-gray-800 font-semibold shadow-md"
+                    : "text-white hover:bg-white/10"
+                }`}
               >
-                <LayoutDashboard className="w-5 h-5" />
+                <LayoutDashboard className="mr-3 h-5 w-5" />
                 <span>Dashboard</span>
-              </Link>
+              </Button>
             </li>
             <li>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-3 px-6 py-3 text-white bg-white/10">
-                  <ScanFace className="w-5 h-5" />
-                  <span>Face Management</span>
-                </div>
-                <div className="flex flex-col py-2">
-                  <Link
-                    href="#"
-                    className="px-14 py-2 text-sm text-gray-300 hover:text-white transition-colors"
-                  >
-                    แก้ไขข้อมูลใบหน้า
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="px-14 py-2 text-sm text-white font-medium"
-                  >
-                    เพิ่มใบหน้า
-                  </Link>
-                </div>
-              </div>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  router.push("/admin/management");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${isActive("/admin/management") && !isActive("/register") ? "bg-white text-gray-800 font-semibold shadow-md" : "text-white hover:bg-white/10"}`}
+              >
+                <ScanFace className="mr-3 h-5 w-5" />
+                <span>Face Management</span>
+              </Button>
+            </li>
+            <li>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  router.push("/register");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full justify-start rounded-full text-base px-6 h-12 transition-colors ${isActive("/register") ? "bg-white text-gray-800 font-semibold shadow-md" : "text-white hover:bg-white/10"}`}
+              >
+                <UserPlus className="mr-3 h-5 w-5" />
+                <span>ลงทะเบียนใหม่</span>
+              </Button>
             </li>
           </ul>
         </nav>
+        <div className="p-4 border-t border-white/10 mt-auto">
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className="w-full justify-center text-red-200 hover:bg-red-900/50 rounded-full h-11"
+          >
+            <LogOut className="mr-2 h-4 w-4" /> ออกจากระบบ
+          </Button>
+        </div>
       </aside>
 
-      {/* ⬜️ Main Layout */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* ⬜️ Top Navigation สมบูรณ์ */}
-        <header className="h-16 bg-white flex items-center justify-end px-8 shadow-sm shrink-0">
-          <div className="flex items-center gap-3">
+      {/* ================= MAIN WRAPPER ================= */}
+      <div className="flex-1 flex flex-col overflow-hidden w-full min-w-0">
+        {/* ⬜️ TOP NAVIGATION */}
+        <header className="h-16 bg-white flex items-center justify-between px-4 sm:px-8 shadow-sm shrink-0 border-b border-gray-100 z-10">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden text-slate-500 hover:bg-slate-100 rounded-full"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <Menu className="w-6 h-6" />
+          </Button>
+
+          <div className="flex items-center gap-3 ml-auto">
             <img
               src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owen"
               alt="Profile"
-              className="w-10 h-10 rounded-full bg-blue-100"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 border border-blue-200"
             />
             <div className="flex flex-col justify-center">
               <span className="text-sm font-bold text-gray-800">
-                Owen Radcliffe
+                {adminProfile.name}
               </span>
-              <span className="text-[10px] text-gray-500 font-semibold tracking-wider">
-                ADMIN
+              <span className="text-[10px] text-gray-500 font-semibold tracking-wider uppercase">
+                {adminProfile.role}
               </span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
-          <h1 className="text-2xl font-bold text-[#324565] mb-6">
-            แก้ไขข้อมูลพนักงาน
-          </h1>
+        {/* ⬜️ CONTENT AREA */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#324565]">
+              แก้ไขข้อมูลพนักงาน
+            </h1>
+            <p className="text-sm text-gray-400 font-medium mt-1">
+              อัปเดตข้อมูลส่วนตัวและใบหน้า
+            </p>
+          </div>
 
-          <div className="bg-white rounded-3xl p-10 shadow-sm w-full max-w-6xl">
+          <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-sm w-full max-w-6xl border border-gray-100">
             {fetching ? (
-              <div className="py-10 text-center">กำลังโหลด...</div>
+              <div className="py-20 flex flex-col items-center justify-center text-gray-400 gap-4">
+                <Loader2 className="animate-spin text-blue-500 w-8 h-8" />
+                <span>กำลังโหลดข้อมูล...</span>
+              </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 sm:gap-12">
                   {/* 📝 Left Section: Form */}
-                  <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-5 sm:gap-6">
                     <div className="space-y-2">
-                      <Label className="text-gray-900 font-semibold text-base">
+                      <Label className="text-gray-900 font-semibold text-sm sm:text-base">
                         ชื่อ-นามสกุล
                       </Label>
                       <Input
@@ -232,11 +317,11 @@ export default function EditPage() {
                         onChange={(e) =>
                           setRegData({ ...regData, fullname: e.target.value })
                         }
-                        className="h-12 border-gray-300 rounded-lg focus-visible:ring-[#4a6396] text-gray-900"
+                        className="h-11 sm:h-12 border-gray-300 rounded-lg focus-visible:ring-[#4a6396] text-gray-900"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-gray-900 font-semibold text-base">
+                      <Label className="text-gray-900 font-semibold text-sm sm:text-base">
                         ตำแหน่ง
                       </Label>
                       <Input
@@ -244,17 +329,17 @@ export default function EditPage() {
                         onChange={(e) =>
                           setRegData({ ...regData, position: e.target.value })
                         }
-                        className="h-12 border-gray-300 rounded-lg focus-visible:ring-[#4a6396] text-gray-900"
+                        className="h-11 sm:h-12 border-gray-300 rounded-lg focus-visible:ring-[#4a6396] text-gray-900"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-gray-900 font-semibold text-base">
+                      <Label className="text-gray-900 font-semibold text-sm sm:text-base">
                         ID (ห้ามแก้ไข)
                       </Label>
                       <Input
                         value={regData.employee_id}
                         disabled
-                        className="h-12 bg-gray-100 border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
+                        className="h-11 sm:h-12 bg-gray-100 border-gray-300 rounded-lg text-gray-500 cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -267,7 +352,6 @@ export default function EditPage() {
                       {/* เช็คว่าเปิดกล้องหรือยัง ถ้ายังให้โชว์รูปเดิม */}
                       {!showCamera ? (
                         <div className="w-full h-full bg-gray-100 flex items-center justify-center relative group">
-                          {/* เปลี่ยนจาก <Image เป็น <img แบบนี้ครับ */}
                           <img
                             src={`${API_URL}/uploads/${regData.employee_id}.jpg?t=${Date.now()}`}
                             alt="Profile"
@@ -277,9 +361,12 @@ export default function EditPage() {
                                 "https://placehold.co/600x400/eeeeee/999999?text=No+Image";
                             }}
                           />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-white font-medium flex items-center gap-2">
-                              <Camera size={20} /> คลิกปุ่มด้านล่างเพื่อถ่ายใหม่
+                          <div
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                            onClick={() => setShowCamera(true)}
+                          >
+                            <span className="text-white font-medium flex items-center gap-2 text-sm sm:text-base">
+                              <Camera size={20} /> คลิกเพื่อถ่ายใหม่
                             </span>
                           </div>
                         </div>
@@ -294,7 +381,7 @@ export default function EditPage() {
                           />
 
                           {step !== "idle" && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-between p-6 pointer-events-none">
+                            <div className="absolute inset-0 flex flex-col items-center justify-between p-4 sm:p-6 pointer-events-none">
                               <div className="bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
                                 <div
                                   className={`w-2 h-2 rounded-full animate-pulse ${step === "done" ? "bg-emerald-500" : "bg-blue-400"}`}
@@ -334,33 +421,31 @@ export default function EditPage() {
                   </div>
                 </div>
 
-                {/* 🔘 Action Buttons */}
-                {/* 🔘 Action Buttons */}
-                <div className="flex justify-center gap-4 mt-12 xl:justify-start">
-                  {/* 🟢 ปุ่มบันทึกข้อมูล (ปรับ Hover เป็นสีน้ำเงินแบบปุ่มเริ่มสแกน) */}
+                {/* 🔘 Action Buttons (Responsive Stack) */}
+                <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-8 sm:mt-12 xl:justify-start">
+                  {/* 🟢 ปุ่มบันทึกข้อมูล */}
                   <Button
                     onClick={handleUpdateInfoOnly}
                     disabled={loading || showCamera}
-                    className="px-8 h-12 bg-emerald-600 hover:bg-[#3b82f6] text-white rounded-lg shadow-sm cursor-pointer transition-colors disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto px-6 sm:px-8 h-11 sm:h-12 bg-emerald-600 hover:bg-[#3b82f6] text-white rounded-lg shadow-sm cursor-pointer transition-colors disabled:cursor-not-allowed"
                   >
                     <Save className="mr-2 h-4 w-4" /> บันทึกข้อมูล
                   </Button>
 
-                  {/* 🔵 ปุ่มเปิดกล้อง / เริ่มสแกน (ใช้สีเดียวกันกับปุ่มที่ไนซ์ชอบ) */}
+                  {/* 🔵 ปุ่มเปิดกล้อง / เริ่มสแกน */}
                   {!showCamera ? (
                     <Button
                       onClick={() => setShowCamera(true)}
-                      className="px-8 h-12 bg-[#233559] hover:bg-[#3b82f6] text-white rounded-lg shadow-sm cursor-pointer transition-colors"
+                      className="w-full sm:w-auto px-6 sm:px-8 h-11 sm:h-12 bg-[#233559] hover:bg-[#3b82f6] text-white rounded-lg shadow-sm cursor-pointer transition-colors"
                     >
-                      <Camera className="mr-2 h-4 w-4" />{" "}
-                      เปิดกล้องเพื่ออัปเดตใบหน้า
+                      <Camera className="mr-2 h-4 w-4" /> อัปเดตใบหน้า
                     </Button>
                   ) : (
                     step === "idle" && (
                       <Button
                         onClick={startLivenessCheck}
                         disabled={loading}
-                        className="px-8 h-12 bg-[#233559] hover:bg-[#3b82f6] text-white rounded-lg shadow-sm cursor-pointer transition-colors disabled:cursor-not-allowed"
+                        className="w-full sm:w-auto px-6 sm:px-8 h-11 sm:h-12 bg-[#233559] hover:bg-[#3b82f6] text-white rounded-lg shadow-sm cursor-pointer transition-colors disabled:cursor-not-allowed"
                       >
                         {loading ? (
                           <>
@@ -379,15 +464,15 @@ export default function EditPage() {
                     <Button
                       variant="outline"
                       onClick={() => setShowCamera(false)}
-                      className="px-8 h-12 border-[#c8c8c8] text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
+                      className="w-full sm:w-auto px-6 sm:px-8 h-11 sm:h-12 border-[#c8c8c8] text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
                     >
-                      ยกเลิกเปิดกล้อง
+                      ยกเลิกกล้อง
                     </Button>
                   ) : (
                     <Button
                       variant="ghost"
                       asChild
-                      className="px-8 h-12 bg-[#c8c8c8] hover:bg-gray-300 text-gray-800 rounded-lg cursor-pointer transition-colors"
+                      className="w-full sm:w-auto px-6 sm:px-8 h-11 sm:h-12 bg-[#c8c8c8] hover:bg-gray-300 text-gray-800 rounded-lg cursor-pointer transition-colors"
                     >
                       <Link href="/admin/management">ย้อนกลับ</Link>
                     </Button>

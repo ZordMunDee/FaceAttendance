@@ -9,7 +9,7 @@ import json
 import time
 import base64
 import threading
-from datetime import datetime, time as dt_time, timedelta
+from datetime import datetime, time as dt_time, timedelta, timezone
 from dotenv import load_dotenv
 
 import numpy as np
@@ -165,7 +165,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         existing_user.face_encoding = json.dumps(enc.tolist())
         existing_user.is_deleted = False
         existing_user.status = "In"
-        existing_user.timestamp = datetime.now()
+        existing_user.timestamp = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=7)
         db.commit()
         return {"message": "reactivated"}
 
@@ -177,7 +177,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         is_admin=user.is_admin,
         face_encoding=json.dumps(enc.tolist()),
         status="In",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=7),
         is_deleted=False
     ))
 
@@ -250,7 +250,7 @@ def scan(data: schemas.ScanRequest, db: Session = Depends(get_db)):
     user = refs[best]
     
     # วันที่และเวลาปัจจุบัน
-    now = datetime.now()
+    now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=7)
     today = now.date()
     status = data.scan_type
 
@@ -418,7 +418,7 @@ def get_latecomers(db: Session = Depends(get_db)):
 @app.get("/stats/latecomers/monthly")
 def late_monthly(db: Session = Depends(get_db)):
 
-    four_months_ago = datetime.now() - timedelta(days=120)
+    four_months_ago = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=7) - timedelta(days=120)
 
     year_col = extract('year', models.ScanLog.timestamp).label("year")
     month_col = extract('month', models.ScanLog.timestamp).label("month")

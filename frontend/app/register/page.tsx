@@ -55,6 +55,7 @@ export default function RegisterPage() {
   
 
   // 🚀 ฟังก์ชันเริ่มการตรวจจับแบบ Step-by-Step
+  // 🚀 ฟังก์ชันเริ่มการตรวจจับแบบ Step-by-Step
   const startLivenessCheck = async () => {
     if (!regData.fullname || !regData.employee_id) {
       toast.error("กรุณากรอกข้อมูลให้ครบก่อน");
@@ -63,14 +64,40 @@ export default function RegisterPage() {
 
     setLoading(true);
 
+    // =========================================
+    // 🛑 1. แอบเช็ค Database ก่อนว่า ID ซ้ำไหม?
+    // =========================================
     try {
+      const token = localStorage.getItem("token");
+      await axios.get(`${API_URL}/users/${regData.employee_id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // ถ้าไม่มี Error แปลว่า "มีรหัสนี้ในระบบแล้ว!"
+      toast.error("ลงทะเบียนไม่สำเร็จ", {
+        description: "รหัสพนักงานนี้มีในระบบแล้ว! กรุณาใช้รหัสอื่น"
+      });
+      setLoading(false);
+      return; // เตะกลับทันที ไม่ต้องเปิดกล้อง
+
+    } catch (error: any) {
+      // ถ้าได้ Error 404 แปลว่า "ยังไม่มีรหัสนี้" -> ลุยต่อได้!
+      if (error.response?.status !== 404) {
+        toast.error("เกิดข้อผิดพลาดในการตรวจสอบข้อมูล");
+        setLoading(false);
+        return;
+      }
+    }
+    // =========================================
+
+    try {
+      // 🎬 เริ่มกระบวนการสแกนหน้า (Simulation)
       setStep("look_straight");
       setProgress(25);
       await new Promise((r) => setTimeout(r, 3500));
 
       const img1 = webcamRef.current?.getScreenshot();
 
-      // ✅ 1. เช็คดักไว้ก่อนเลยว่ากล้องถ่ายรูปติดไหม
       if (!img1) {
         toast.error("ไม่สามารถถ่ายรูปได้ กรุณาตรวจสอบการอนุญาตใช้งานกล้อง");
         setStep("idle");
@@ -93,12 +120,15 @@ export default function RegisterPage() {
       setProgress(100);
 
       // 🚀 ส่งข้อมูลไปที่ Backend
+      const token = localStorage.getItem("token");
       await axios.post(`${API_URL}/users/`, {
         fullname: regData.fullname,
         employee_id: regData.employee_id,
         position: regData.position,
         image_base64: img1,
         is_admin: false,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       toast.success("วิเคราะห์ใบหน้าสำเร็จ!");
@@ -106,26 +136,24 @@ export default function RegisterPage() {
         description: "ข้อมูลพนักงานถูกบันทึกเรียบร้อย",
       });
 
+      // =========================================
+      // 🚀 2. เด้งกลับไปหน้า Face Management เมื่อสำเร็จ
+      // =========================================
       setTimeout(() => {
-        setRegData({ fullname: "", position: "", employee_id: "" });
-        setStep("idle");
-        setProgress(0);
-        setLoading(false);
+        router.push("/admin/management"); // พาเด้งกลับหน้าตาราง
       }, 2000);
+
     } catch (error: any) {
-      // ✅ 2. ดึงข้อความ Error จาก Backend มาโชว์ให้รู้กันไปเลย!
       console.log("🔥 ERROR DETAIL:", error.response?.data);
 
       const errorDetail = error.response?.data?.detail;
       let errorMessage = "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้";
 
-      // แปลงข้อความจาก Backend ให้เป็นภาษาไทยอ่านง่ายๆ
       if (errorDetail === "exists") {
         errorMessage = "รหัสพนักงานนี้มีในระบบแล้ว!";
       } else if (errorDetail === "no face") {
         errorMessage = "ระบบตรวจไม่พบใบหน้า กรุณาอยู่ในที่สว่างและมองกล้อง";
       } else if (typeof errorDetail === "object") {
-        // กรณีข้อมูลไม่ครบ (Validation Error)
         errorMessage = "ส่งข้อมูลไม่ถูกต้อง กรุณาตรวจสอบฟอร์ม";
       } else if (errorDetail) {
         errorMessage = errorDetail;
