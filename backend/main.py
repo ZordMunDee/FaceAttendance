@@ -24,6 +24,7 @@ from auth import create_access_token
 from auth import verify_token
 
 from fastapi import Header
+from typing import Optional
 
 # =========================
 # STATIC FILES (อัปโหลดรูปภาพ)
@@ -391,10 +392,18 @@ async def update_user(emp_id: str, data: schemas.UserUpdate, db: Session = Depen
 # STATS
 # =========================
 @app.get("/stats/latecomers/")
-def get_latecomers(db: Session = Depends(get_db)):
-    # 🚀 สมมติว่าโค้ดเดิมเป็นการ query ScanLog
-    # ให้เพิ่มเงื่อนไข Join กับตาราง User และเช็คว่า is_deleted == False
-    
+def get_latecomers(
+    month: Optional[int] = None, 
+    year: Optional[int] = None, 
+    db: Session = Depends(get_db)
+):
+    # 🚀 1. ถ้าหน้าบ้านไม่ได้ส่งเดือน/ปีมา (เช่น โพเดียมหลัก) ให้ใช้ของเดือนปัจจุบัน
+    if not month or not year:
+        now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=7)
+        month = now.month
+        year = now.year
+
+    # 🚀 2. ค้นหาข้อมูล โดยเพิ่มเงื่อนไข extract กรองให้ตรงกับเดือนและปีที่ต้องการ
     results = db.query(
         models.User.fullname,
         models.User.employee_id,
@@ -403,7 +412,9 @@ def get_latecomers(db: Session = Depends(get_db)):
         models.ScanLog, models.User.employee_id == models.ScanLog.employee_id
     ).filter(
         models.ScanLog.status == "Late",
-        models.User.is_deleted == False # 🚀 หัวใจสำคัญอยู่บรรทัดนี้!
+        models.User.is_deleted == False, # คนนี้ต้องยังไม่ถูกลบ
+        extract('month', models.ScanLog.timestamp) == month, # 👈 กรองเดือน
+        extract('year', models.ScanLog.timestamp) == year    # 👈 กรองปี
     ).group_by(
         models.User.fullname,
         models.User.employee_id
@@ -413,7 +424,6 @@ def get_latecomers(db: Session = Depends(get_db)):
 
     # แปลงข้อมูลส่งกลับ
     return [{"fullname": r.fullname, "employee_id": r.employee_id, "count": r.count} for r in results]
-
 
 @app.get("/stats/latecomers/monthly")
 def late_monthly(db: Session = Depends(get_db)):
