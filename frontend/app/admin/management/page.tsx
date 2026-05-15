@@ -30,7 +30,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -39,7 +38,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
 import axios from "axios";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
