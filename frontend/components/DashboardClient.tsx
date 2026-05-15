@@ -12,21 +12,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2,
-  Users,
-  Clock,
   RefreshCw,
-  AlertCircle,
-  Moon,
   CalendarIcon,
   LayoutDashboard,
-  UserCheck,
   UserPlus,
   LogOut,
   Menu,
-  HardHat,
-  ChevronLeft,
-  ChevronRight,
-  Search,
   ScanFace,
   Download,
   X,
@@ -35,7 +26,6 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { Calendar } from "@/components/ui/calendar";
 import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
 import {
   Popover,
   PopoverContent,
@@ -45,6 +35,11 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { toast } from "sonner";
+import AccountGroupIcon from "@iconify-react/mdi/account-group";
+import AccountHardHatOutlineIcon from "@iconify-react/mdi/account-hard-hat-outline";
+import AccountAlertOutlineIcon from "@iconify-react/mdi/account-alert-outline";
+import AccountArrowUpOutlineIcon from "@iconify-react/mdi/account-arrow-up-outline";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export function DashboardClient() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -154,40 +149,56 @@ export function DashboardClient() {
     {
       label: "ทั้งหมด",
       val: summary.total,
-      color: "text-[#324565]",
-      bg: "bg-[#abc0d8]",
-      icon: <Users className="w-10 h-10 text-[#324565]" />,
+      color: "text-[#0A1D37]",
+      bg: "bg-[#8CAEC9]",
+      icon: <AccountGroupIcon className="w-15 h-15 text-[#0A1D37]" />,
     },
     {
       label: "ปกติ",
       val: summary.onTime,
-      color: "text-[#3e6a47]",
-      bg: "bg-[#9bc291]",
-      icon: <HardHat className="w-10 h-10 text-[#3e6a47]" />,
+      color: "text-[#134B0D]",
+      bg: "bg-[#7CB677]",
+      icon: <AccountHardHatOutlineIcon className="w-15 h-15 text-[#134B0D]" />,
     },
     {
       label: "มาสาย",
       val: summary.late,
-      color: "text-[#974c53]",
-      bg: "bg-[#cd9ca1]",
-      icon: <AlertCircle className="w-10 h-10 text-[#974c53]" />,
+      color: "text-[#4E1213]",
+      bg: "bg-[#DF797B]",
+      icon: <AccountAlertOutlineIcon className="w-15 h-15 text-[#4E1213]" />,
     },
     {
       label: "นอกเวลา",
       val: summary.overtime,
-      color: "text-[#817b3d]",
-      bg: "bg-[#e2e19b]",
-      icon: <UserPlus className="w-10 h-10 text-[#817b3d]" />,
+      color: "text-[#766800]",
+      bg: "bg-[#DFDF79]",
+      icon: <AccountArrowUpOutlineIcon className="w-15 h-15 text-[#766800]" />,
     },
   ];
 
-  // 🚀 ฟังก์ชันดาวน์โหลด CSV
+ // 🚀 ฟังก์ชันดาวน์โหลด CSV (โหลดเหมาทั้งเดือน)
   const downloadCSV = () => {
-    // 1. สร้างหัวตาราง (Header)
+    // 1. หาว่าตอนนี้กำลังดูเดือน/ปีอะไรอยู่ (ดูจาก date ที่เลือก หรือถ้าไม่มีก็เอาเดือนปัจจุบัน)
+    const targetDate = date || new Date();
+    const targetMonth = targetDate.getMonth();
+    const targetYear = targetDate.getFullYear();
+
+    // 2. ดึงข้อมูลจาก logs ทั้งหมด (ไม่ใช่แค่ที่โชว์ในตาราง) มากรองเอาเฉพาะเดือนที่ตรงกัน
+    const monthlyLogs = logs.filter((log) => {
+      const d = new Date(log.timestamp);
+      return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+    });
+
+    if (monthlyLogs.length === 0) {
+      toast.error("ไม่มีข้อมูลสแกนในเดือนนี้เลยครับ");
+      return;
+    }
+
+    // 3. สร้างหัวตาราง (Header)
     const headers = ["ชื่อ-นามสกุล", "ID พนักงาน", "วันที่", "เวลา", "สถานะ"];
 
-    // 2. ดึงข้อมูลจาก filteredLogs มาจัดเรียงใหม่
-    const rows = filteredLogs.map((log) => {
+    // 4. แปลงข้อมูลรายเดือนเป็นแถว (เรียงใหม่ให้สวยงาม)
+    const rows = monthlyLogs.map((log) => {
       const dateStr = new Date(log.timestamp).toLocaleDateString("th-TH", {
         timeZone: "Asia/Bangkok",
       });
@@ -212,24 +223,25 @@ export function DashboardClient() {
       ].join(",");
     });
 
-    // 3. รวม Header กับข้อมูลเข้าด้วยกัน (ใส่ \uFEFF เพื่อให้ Excel อ่านภาษาไทยออก ไม่เป็นภาษาต่างดาว)
+    // 5. รวม Header กับข้อมูลเข้าด้วยกัน (ใส่ \uFEFF ให้ Excel อ่านภาษาไทยได้)
     const csvContent =
       "data:text/csv;charset=utf-8,\uFEFF" +
       [headers.join(","), ...rows].join("\n");
 
-    // 4. สร้างระบบจำลองการกดคลิกดาวน์โหลด
+    // 6. ตั้งชื่อไฟล์ให้ตรงกับเดือนนั้นๆ
+    const monthName = targetDate.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+    const fileName = `Attendance_Log_${monthName.replace(/\s+/g, "_")}.csv`;
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    // ตั้งชื่อไฟล์ตามวันที่ที่เลือก
-    const fileNameDate = date ? format(date, "dd-MM-yyyy") : "All";
-    link.setAttribute("download", `Attendance_Log_${fileNameDate}.csv`);
+    link.setAttribute("download", fileName);
 
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    toast.success("ดาวน์โหลดไฟล์ CSV สำเร็จ!");
+    toast.success(`ดาวน์โหลดข้อมูลของเดือน${monthName} สำเร็จ!`);
   };
 
   if (loading) {
@@ -241,7 +253,7 @@ export function DashboardClient() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#eaf0f6] text-slate-900 font-sans selection:bg-[#4a6396]/30 overflow-hidden relative">
+    <div className="flex h-screen bg-[#eaf0f6] text-slate-900 font-sans selection:bg-[#4a6396]/30 overflow-hidden relative">
       {/* 🌑 Overlay สีดำโปร่งแสงตอนเปิด Sidebar มือถือ */}
       {isSidebarOpen && (
         <div
@@ -254,7 +266,7 @@ export function DashboardClient() {
       {/* 🎨 แก้ไขคลาสตรงนี้ให้ลอย (Fixed) และสไลด์ได้บนจอมือถือ แต่ฝังตัว (Static) บนจอคอม */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 bg-[#4a6396] text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:h-screen lg:shadow-lg",
+          "fixed inset-y-0 left-0 z-40 w-64 bg-[#4a6396] text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:h-full lg:shadow-lg",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -368,16 +380,15 @@ export function DashboardClient() {
         {/* ⬜️ CONTENT AREA */}
         <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto">
           {/* TITLE SECTION */}
-          <div className="mb-6 sm:mb-8">
+          <div className="mb-6 sm:mb-8 shrink-0">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-[#324565]">
-              {date
-                ? date.toLocaleDateString("th-TH", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })
-                : "แผงควบคุมระบบ"}
+              {/* 🚀 บังคับโชว์วันที่เสมอ ถ้าเผลอกดยกเลิกวันในปฏิทิน จะเด้งกลับมาโชว์วันปัจจุบันทันที! */}
+              {(date || new Date()).toLocaleDateString("th-TH", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
             </h2>
             <p className="text-sm text-gray-400 font-medium mt-1">
               ภาพรวมการสแกนเข้า-ออกงานประจำวัน
@@ -411,13 +422,16 @@ export function DashboardClient() {
           {/* MAIN GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
             {/* CALENDAR (LEFT) */}
-            <div className="col-span-1 lg:col-span-5 xl:col-span-4 flex flex-col h-full">
+            <div className="col-span-1 lg:col-span-5 xl:col-span-5 flex flex-col h-full">
               <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 shadow-sm p-4 sm:p-8 flex flex-col flex-1 overflow-hidden">
                 <div className="flex-1 flex justify-center scale-95 sm:scale-100 lg:scale-105">
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={setDate}
+                    // 🚀 1. เปลี่ยนตรง onSelect เป็นแบบนี้ครับ (ดักไม่ให้เป็นค่าว่าง)
+                    onSelect={(newDate) => {
+                      if (newDate) setDate(newDate);
+                    }}
                     month={date}
                     onMonthChange={setDate}
                     locale={th}
@@ -428,7 +442,7 @@ export function DashboardClient() {
             </div>
 
             {/* TABLE (RIGHT) */}
-            <div className="col-span-1 lg:col-span-7 xl:col-span-8 h-full">
+            <div className="col-span-1 lg:col-span-7 xl:col-span-7 h-full">
               <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col h-full overflow-hidden">
                 {/* HEADER FILTERS */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 sm:p-8 gap-4 border-b border-gray-100">
@@ -500,9 +514,12 @@ export function DashboardClient() {
                 </div>
 
                 {/* TABLE BODY */}
-                <div className="flex-1 overflow-x-auto custom-scrollbar">
+                {/* ================= TABLE BODY ================= */}
+                {/* 🚀 ทริค: ใช้ [&>div] ยิงคำสั่งทะลุเข้าไปหา wrapper ของ shadcn โดยตรง เพื่อไม่ให้เกิด Scroll ซ้อนกัน */}
+                <div className="flex-1 w-full [&>div]:max-h-[340pxpx] sm:[&>div]:max-h-[380px] [&>div]:overflow-auto [&>div]:custom-scrollbar">
                   <Table className="min-w-[600px]">
-                    <TableHeader>
+                    {/* 🚀 ใส่ sticky top-0 ตรงนี้ และใส่เงาบางๆ (shadow-sm) ให้ดูมีมิติเวลาเลื่อนทับข้อมูล */}
+                    <TableHeader className="sticky top-0 bg-white z-20 shadow-sm ring-1 ring-black/5">
                       <TableRow className="bg-transparent hover:bg-transparent border-none">
                         <TableHead className="pl-4 sm:pl-8 uppercase text-[10px] sm:text-xs font-bold text-gray-500 py-4 sm:py-5">
                           ชื่อ
@@ -521,6 +538,7 @@ export function DashboardClient() {
                         </TableHead>
                       </TableRow>
                     </TableHeader>
+
                     <TableBody>
                       {filteredLogs.map((log, i) => (
                         <TableRow
@@ -577,13 +595,13 @@ export function DashboardClient() {
                             <Badge
                               variant="secondary"
                               className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[11px] font-extrabold border-none 
-              ${
-                log.status === "In"
-                  ? "bg-emerald-100 text-emerald-800"
-                  : log.status === "Late"
-                    ? "bg-rose-100 text-rose-800"
-                    : "bg-blue-100 text-blue-800"
-              }`}
+                              ${
+                                log.status === "In"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : log.status === "Late"
+                                    ? "bg-rose-100 text-rose-800"
+                                    : "bg-blue-100 text-blue-800"
+                              }`}
                             >
                               {log.status === "In"
                                 ? "On time"

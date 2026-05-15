@@ -55,7 +55,6 @@ export default function RegisterPage() {
   
 
   // 🚀 ฟังก์ชันเริ่มการตรวจจับแบบ Step-by-Step
-  // 🚀 ฟังก์ชันเริ่มการตรวจจับแบบ Step-by-Step
   const startLivenessCheck = async () => {
     if (!regData.fullname || !regData.employee_id) {
       toast.error("กรุณากรอกข้อมูลให้ครบก่อน");

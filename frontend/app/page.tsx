@@ -11,6 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 export default function HomePage() {
   const [time, setTime] = useState<Date | null>(null);
   const router = useRouter();
+  const [retrospectiveData, setRetrospectiveData] = useState<any[]>([]);
 
   const [latecomers, setLatecomers] = useState<any[]>([]);
 
@@ -18,26 +19,78 @@ export default function HomePage() {
   // FETCH DATA
   // =========================
   useEffect(() => {
-    const fetchLatecomers = async () => {
+    // 1. ดึงข้อมูลคนสาย "เดือนปัจจุบัน" (สำหรับแท่น Podium)
+    const fetchCurrentMonth = async () => {
       try {
         const res = await fetch(`${API_URL}/stats/latecomers/`);
         const data = await res.json();
-
-        // กรองคนที่ถูกลบทิ้ง (ต้องแก้ที่ Backend ด้วยถึงจะชัวร์ 100%)
         const activeUsers = Array.isArray(data)
           ? data.filter(
               (user) => user.is_deleted !== true && user.is_deleted !== 1,
             )
           : [];
-
         setLatecomers(activeUsers);
       } catch (e) {
         console.error("ดึงข้อมูลคนสายไม่สำเร็จ", e);
-        setLatecomers([]);
       }
     };
 
-    fetchLatecomers();
+    // 2. ดึงข้อมูล "แชมป์ย้อนหลัง 3 เดือน" (จาก Database จริง)
+    const fetchRetrospective = async () => {
+      try {
+        const results = [];
+        const currentDate = new Date();
+
+        // วนลูปดึงข้อมูลทีละเดือน ย้อนหลัง 3 เดือน
+        for (let i = 1; i <= 3; i++) {
+          const pastDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() - i,
+            1,
+          );
+          const month = pastDate.getMonth() + 1; // 1-12
+          const year = pastDate.getFullYear();
+          const monthText = pastDate.toLocaleDateString("th-TH", {
+            month: "long",
+            year: "numeric",
+          });
+
+          // 🚀 ยิง API ไปหา Backend พร้อมระบุเดือนและปี
+          const res = await fetch(
+            `${API_URL}/stats/latecomers/?month=${month}&year=${year}`,
+          );
+
+          if (res.ok) {
+            const data = await res.json();
+            const activeUsers = Array.isArray(data)
+              ? data.filter(
+                  (user) => user.is_deleted !== true && user.is_deleted !== 1,
+                )
+              : [];
+
+            if (activeUsers.length > 0) {
+              // หาคนที่สายเยอะที่สุด (อันดับ 1 ของเดือนนั้น)
+              const champion = activeUsers.sort(
+                (a, b) => (b?.count || 0) - (a?.count || 0),
+              )[0];
+
+              results.push({
+                monthText,
+                name: champion.fullname || champion.name,
+                count: champion.count,
+                employeeId: champion.employee_id, // 👈 เก็บ ID ไว้ดึงรูปจริง
+              });
+            }
+          }
+        }
+        setRetrospectiveData(results);
+      } catch (e) {
+        console.error("ดึงข้อมูลย้อนหลังไม่สำเร็จ", e);
+      }
+    };
+
+    fetchCurrentMonth();
+    fetchRetrospective();
   }, []);
 
   // =========================
@@ -60,10 +113,7 @@ export default function HomePage() {
   }, []);
 
   const formatTime = (date: Date) =>
-    date.toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    date.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 
   const formatDate = (date: Date) =>
     date.toLocaleDateString("th-TH", {
@@ -112,7 +162,6 @@ export default function HomePage() {
 
   return (
     <main
-      // 🎨 Responsive: เปลี่ยนจาก flex แถวเดียว เป็น flex-col บนมือถือ และ lg:flex-row บนจอคอม
       className="flex flex-col lg:flex-row min-h-screen font-sans bg-no-repeat bg-center bg-fixed overflow-x-hidden"
       style={{
         backgroundImage: "url('/background.png')",
@@ -122,7 +171,6 @@ export default function HomePage() {
       }}
     >
       {/* ================= LEFT ================= */}
-      {/* 🎨 Responsive: ให้สูงเต็มจอบนมือถือ (min-h-screen) จะได้เห็นนาฬิกาเต็มๆ */}
       <div className="flex-1 w-full min-h-screen lg:min-h-0 relative flex flex-col items-center justify-center bg-black/10 backdrop-blur-[2px] p-4">
         {/* LOGO */}
         <div className="absolute top-6 left-6 sm:top-12 sm:left-14 w-[120px] sm:w-[200px]">
@@ -132,6 +180,8 @@ export default function HomePage() {
             width={200}
             height={200}
             style={{ width: "100%", height: "auto" }}
+            priority
+            className="w-full h-auto"
           />
         </div>
 
@@ -176,7 +226,6 @@ export default function HomePage() {
       </div>
 
       {/* ================= RIGHT ================= */}
-      {/* 🎨 Responsive: ความกว้างเต็มจอบนมือถือ และโค้งมนเฉพาะด้านบน */}
       <div className="w-full lg:w-[450px] xl:w-[500px] bg-[#d5e2f1] flex flex-col p-6 sm:p-10 shadow-2xl rounded-t-[3rem] lg:rounded-t-none lg:rounded-l-3xl z-10 min-h-screen lg:min-h-0">
         {/* HEADER */}
         <div className="text-center mb-10 sm:mb-16 text-[#1a365d] mt-4 sm:mt-0">
@@ -193,7 +242,6 @@ export default function HomePage() {
         </div>
 
         {/* ================= PODIUM ================= */}
-        {/* 🎨 Responsive: ใช้เทคนิค scale-90 บนจอมือถือเพื่อให้โพเดียมไม่ล้นจอ */}
         <div className="flex justify-center items-end gap-2 sm:gap-4 h-64 sm:h-72 mb-8 sm:mb-10 transform scale-95 sm:scale-100 origin-bottom">
           {podiumData.map((item, index) => {
             if (!item.person)
@@ -208,20 +256,15 @@ export default function HomePage() {
                 key={personName}
                 className={`flex flex-col items-center relative ${item.wrapperClass}`}
               >
-                {/* 🚀 ป้าย Flex อันดับ (Rank Badge) */}
                 <div
-                  className={`absolute -top-3 sm:-top-4 -right-1 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-black text-lg sm:text-xl shadow-lg z-30 border-2 border-white
-                  ${item.rank === 1 ? "bg-yellow-400 text-yellow-900" : item.rank === 2 ? "bg-slate-300 text-slate-800" : "bg-amber-700 text-white"}`}
+                  className={`absolute -top-3 sm:-top-4 -right-1 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-black text-lg sm:text-xl shadow-lg z-30 border-2 border-white ${item.rank === 1 ? "bg-yellow-400 text-yellow-900" : item.rank === 2 ? "bg-slate-300 text-slate-800" : "bg-amber-700 text-white"}`}
                 >
                   #{item.rank}
                 </div>
-
-                {/* มงกุฎที่ 1 */}
                 {isFirst && (
                   <Crown className="text-yellow-500 fill-yellow-400 w-10 h-10 sm:w-14 sm:h-14 absolute -top-10 sm:-top-14 z-20 drop-shadow-lg animate-bounce" />
                 )}
 
-                {/* 🚀 AVATAR */}
                 <div className="relative z-10 mb-[-10px] sm:mb-[-15px]">
                   <Image
                     src={`${API_URL}/uploads/${employeeId}.jpg?t=${Date.now()}`}
@@ -236,7 +279,6 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* RIBBON */}
                 <div
                   className={`w-14 sm:w-16 flex flex-col items-center justify-start pt-2 font-black text-2xl sm:text-3xl shadow-lg relative z-0 ${item.bgColor} ${item.textColor} ${item.ribbonHeight}`}
                   style={{
@@ -250,7 +292,6 @@ export default function HomePage() {
                   </span>
                 </div>
 
-                {/* NAMES & TITLES */}
                 <div className="text-center mt-2 sm:mt-3 h-16 sm:h-20 px-1">
                   <p className="font-extrabold text-[#1a365d] text-[9px] sm:text-[11px] uppercase tracking-wide opacity-80 leading-tight mb-1">
                     {item.title}
@@ -264,50 +305,56 @@ export default function HomePage() {
           })}
         </div>
 
-        {/* ================= LIST (อันดับ 4 เป็นต้นไป) ================= */}
-        <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar flex-1 lg:flex-none">
-          {others.map((person, idx) => {
-            const personName = person.fullname || person.name;
-            const employeeId = person.employee_id;
-            return (
-              <div
-                key={personName}
-                className="flex justify-between items-center bg-[#bdcce0] p-3 rounded-2xl shadow-sm hover:bg-[#a6b9d1] transition-colors"
-              >
-                <div className="flex items-center gap-3 sm:gap-4">
-                  {/* Badge บอกอันดับในลิสต์ */}
-                  <span className="font-black text-[#1a365d] opacity-50 w-4 text-sm sm:text-base text-center">
-                    {idx + 4}
-                  </span>
+        {/* ================= TOP TIER RETROSPECTIVE (ดึงจาก DB จริง) ================= */}
+        <div className="flex flex-col flex-1 lg:flex-none mt-2 sm:mt-4">
+          <h3 className="text-xl sm:text-2xl font-extrabold text-[#1a365d] text-center mb-4 sm:mb-6">
+            Top Tier Retrospective
+          </h3>
 
-                  {/* รูปคนในลิสต์ (แก้แคชแล้ว) */}
+          <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
+            {retrospectiveData.length > 0 ? (
+              retrospectiveData.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center bg-[#bdcce0] p-3 sm:p-4 rounded-[1.2rem] shadow-sm hover:bg-[#a6b9d1] transition-colors gap-3 sm:gap-4"
+                >
+                  {/* 🚀 รูปแชมป์เก่า (ดึงรูปจริงจาก Database เหมือนบนแท่น) */}
                   <Image
-                    src={`${API_URL}/uploads/${employeeId}.jpg?t=${Date.now()}`}
-                    alt={personName}
-                    width={40}
-                    height={40}
+                    src={`${API_URL}/uploads/${item.employeeId}.jpg?t=${Date.now()}`}
+                    alt={item.name}
+                    width={50}
+                    height={50}
                     unoptimized
                     onError={(e) => {
-                      e.currentTarget.srcset = `https://api.dicebear.com/7.x/avataaars/svg?seed=${personName}`;
+                      e.currentTarget.srcset = `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.name}`;
                     }}
-                    className="rounded-full bg-white border-2 border-white object-cover h-8 w-8 sm:h-10 sm:w-10"
+                    className="rounded-full bg-white border-2 border-white object-cover h-12 w-12 sm:h-14 sm:w-14 shrink-0 shadow-sm"
                   />
-                  <span className="font-bold text-[#1a365d] text-sm sm:text-lg line-clamp-1">
-                    {personName}
-                  </span>
-                </div>
 
-                <div className="flex items-end gap-1 mr-2 shrink-0">
-                  <span className="font-black text-xl sm:text-2xl text-[#1a365d]">
-                    {person.count}
-                  </span>
-                  <span className="text-[10px] sm:text-xs font-bold text-[#1a365d] mb-0.5 sm:mb-1 opacity-70">
-                    ครั้ง
-                  </span>
+                  {/* 📝 ข้อมูลตรงกลาง */}
+                  <div className="flex flex-col flex-1">
+                    <span className="text-[9px] sm:text-[11px] font-bold text-[#1a365d] opacity-75">
+                      ครองแชมป์วัยเก๋า ประจำเดือน {item.monthText}
+                    </span>
+                    <span className="font-bold text-[#1a365d] text-sm sm:text-base leading-tight mt-0.5 line-clamp-1">
+                      {item.name}
+                    </span>
+                  </div>
+
+                  {/* 🔢 จำนวนครั้ง */}
+                  <div className="flex items-center justify-end shrink-0 pr-2">
+                    <span className="font-black text-2xl sm:text-3xl text-[#1a365d]">
+                      {item.count}
+                    </span>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center text-[#1a365d]/50 font-semibold py-4">
+                ไม่มีข้อมูลย้อนหลัง
               </div>
-            );
-          })}
+            )}
+          </div>
         </div>
       </div>
     </main>
