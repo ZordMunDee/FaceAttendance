@@ -313,7 +313,7 @@ export default function ManagementPage() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="ค้นหารายชื่อพนักงาน..."
-                className="pl-11 pr-4 bg-white border-none rounded-full h-11 shadow-sm focus-visible:ring-[#abc0d8] w-full"
+                className="pl-11 pr-4 bg-white border-none rounded-full h-11 shadow-sm focus-visible:ring-[#ffffff] w-full"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
