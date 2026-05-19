@@ -24,6 +24,7 @@ from auth import create_access_token
 from auth import verify_token
 
 from fastapi import Header
+import math
 from typing import Optional
 
 # =========================
@@ -57,6 +58,20 @@ app.add_middleware(
 
 load_dotenv()
 models.Base.metadata.create_all(bind=engine)
+
+COMPANY_LAT = 14.09793555084266
+COMPANY_LNG = 100.61026345693386
+MAX_RADIUS_METERS = 100
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    R = 6371e3 # รัศมีโลก (เมตร)
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    
+    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
 
 def get_current_user(authorization: str = Header(None)):
@@ -220,6 +235,18 @@ def login(data: schemas.LoginRequest):
 
 @app.post("/scan/")
 def scan(data: schemas.ScanRequest, db: Session = Depends(get_db)):
+
+
+    if data.lat is None or data.lng is None:
+        raise HTTPException(status_code=400, detail="ไม่พบข้อมูลพิกัด GPS กรุณาเปิด Location")
+
+    # 🛑 2. คำนวณระยะทางว่าอยู่ไกลเกินกำหนดไหม
+    distance = calculate_distance(data.lat, data.lng, COMPANY_LAT, COMPANY_LNG)
+    if distance > MAX_RADIUS_METERS:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"คุณอยู่ห่างจากบริษัทเกินไป ({int(distance)} เมตร)"
+        )
 
     incoming_encoding = decode_face(data.image_base64)
 
