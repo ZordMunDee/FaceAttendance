@@ -39,16 +39,16 @@ services:
       - db
 
   # ⚛️ Frontend (Next.js)
-  frontend:
-    build: ./frontend
-    container_name: frontend_app
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    depends_on:
-      - backend
+  # frontend:
+  #   build: ./frontend
+  #   container_name: frontend_app
+  #   restart: always
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NEXT_PUBLIC_API_URL=http://localhost:8000
+  #   depends_on:
+  #     - backend
   
   # ☁️ Cloudflare Tunnel (ตัวเปิดวาร์ป)
   # ☁️ Tunnel สำหรับหน้าบ้าน (อันเดิมที่ไนซ์มี)

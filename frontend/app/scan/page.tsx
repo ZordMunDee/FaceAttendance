@@ -45,6 +45,11 @@ function ScanContent() {
   const [isLocationValid, setIsLocationValid] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
 
+  const [userCoords, setUserCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+
   useEffect(() => {
     setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -84,6 +89,8 @@ function ScanContent() {
 
         if (distance <= COMPANY_LOCATION.maxRadius) {
           setIsLocationValid(true);
+          // 🚀 2. ถ้าผ่าน ให้เก็บพิกัดเตรียมส่งให้กล้อง
+          setUserCoords({ lat: userLat, lng: userLng });
         } else {
           setIsLocationValid(false);
           setLocationMessage(
@@ -188,7 +195,11 @@ function ScanContent() {
               </h2>
 
               <div className="w-full max-w-xs sm:max-w-md">
-                <ScanInterface type={type} />
+                <ScanInterface
+                  type={type}
+                  lat={userCoords?.lat}
+                  lng={userCoords?.lng}
+                />
               </div>
             </>
           )}

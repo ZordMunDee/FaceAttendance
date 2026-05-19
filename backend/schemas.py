@@ -13,6 +13,8 @@ class UserCreate(BaseModel):
 class ScanRequest(BaseModel):
     image_base64: str
     scan_type: str  # เพิ่มฟิลด์นี้: "In" หรือ "Out"
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 # backend/schemas.py
 

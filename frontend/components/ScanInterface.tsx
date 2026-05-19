@@ -6,7 +6,8 @@ import { Button } from "./ui/button";
 import { ScanFace, Loader2, Check, X } from "lucide-react";
 import { useRouter } from 'next/navigation';
 
-export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
+// 🚀 1. เพิ่มการรับค่า lat และ lng เข้ามาใน Props
+export function ScanInterface({ type, lat, lng }: { type: 'In' | 'Out' | null, lat?: number | null, lng?: number | null }) {
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState<{
     show: boolean;
@@ -39,15 +40,15 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           image_base64: img,
-          scan_type: type
+          scan_type: type,
+          // 🚀 2. แนบพิกัด GPS ส่งขึ้นรถไฟไปให้ Backend ด้วย!
+          lat: lat,
+          lng: lng
         })
       });
 
-      // 🚀 1. ดักจับ Error จาก Backend ตรงนี้!
       if (!res.ok) {
-        // แปลงข้อความที่ Backend ส่งมาให้อ่านได้
         const errorData = await res.json(); 
-        // โยนข้อความ (detail) ไปให้ block catch ทำงาน
         throw new Error(errorData.detail || "ไม่พบใบหน้า"); 
       }
 
@@ -78,20 +79,19 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
       }, 2500);
 
     } catch (err: any) {
-      // 🚀 2. เอาข้อความที่โยนมา มาแยกประเภทแสดงผล Popup
-      const isDuplicate = err.message.includes("แล้ววันนี้"); // เช็คว่ามีคำว่าแล้ววันนี้ไหม
+      const isDuplicate = err.message.includes("แล้ววันนี้");
 
       setPopup({ 
         show: true, 
         type: 'error', 
-        title: isDuplicate ? 'แจ้งเตือนการสแกนซ้ำ' : 'ไม่พบใบหน้า', // เปลี่ยนหัวข้อถ้ารู้ว่าเป็นการสแกนซ้ำ
-        subtitle: err.message // แสดงข้อความเวลาที่ Backend ส่งมา
+        title: isDuplicate ? 'แจ้งเตือนการสแกนซ้ำ' : 'ไม่พบใบหน้า', 
+        subtitle: err.message 
       });
 
       setTimeout(() => {
         setPopup(prev => ({ ...prev, show: false }));
         setLoading(false);
-      }, 3500); // 💡 เพิ่มเวลาโชว์ Popup เป็น 3.5 วินาที ให้พนักงานอ่านเวลาทัน
+      }, 3500); 
     }
   };
 
@@ -99,12 +99,10 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
     <>
       <div className="space-y-4 sm:space-y-6 w-full relative z-10 animate-in fade-in duration-500">
         
-        {/* กล้อง Aspect Ratio จะเป็นจัตุรัสบนมือถือ และ 4:3 บนจอใหญ่ */}
         <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border-2 border-slate-800 bg-slate-900 shadow-xl sm:shadow-2xl aspect-square sm:aspect-[4/3]">
           <CameraBox webcamRef={webcamRef} />
         </div>
 
-        {/* ปุ่มกดสแกน Responsive */}
         <Button 
           onClick={handleScan} 
           disabled={loading || !type} 
@@ -126,7 +124,6 @@ export function ScanInterface({ type }: { type: 'In' | 'Out' | null }) {
         </Button>
       </div>
 
-      {/* Popup Responsive */}
       {popup.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md px-4 sm:px-6">
           <div className={`w-full max-w-[90%] sm:max-w-lg rounded-[1.5rem] sm:rounded-[2rem] p-8 sm:p-10 flex flex-col items-center justify-center text-center shadow-2xl animate-in zoom-in duration-300 ${popup.type === 'success' ? 'bg-[#59A869]' : 'bg-[#C64E40]'}`}>
